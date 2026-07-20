@@ -3,7 +3,7 @@
 ## 📁 CẤU TRÚC FILE
 
 ```
-vuadaoquang/
+vuakhoangsan/
 ├── index.html          ← Giao diện chính (đã có)
 ├── styles.css          ← Stylesheet (đã có)
 ├── app.js              ← Logic nâng cấp (app_upgraded.js đổi tên)
@@ -18,7 +18,7 @@ vuadaoquang/
 - Tìm `@BotFather` trong Telegram → Start
 - Gửi lệnh: `/newbot`
 - Đặt tên bot: `Vua Đào Quặng`
-- Đặt username bot: `VuaDaoQuang_Bot` (phải kết thúc bằng `_bot`)
+- Đặt username bot: `vuakhoangsan_Bot` (phải kết thúc bằng `_bot`)
 
 ### 1.2 Lấy Bot Token
 BotFather sẽ trả về:
@@ -57,11 +57,11 @@ curl -X POST "https://api.telegram.org/bot<TOKEN>/setChatMenuButton" \
 ### Option A: GitHub Pages (FREE — Khuyến nghị)
 
 ```bash
-# 1. Tạo repo GitHub mới: vuadaoquang
+# 1. Tạo repo GitHub mới: vuakhoangsan
 # 2. Upload 3 file (index.html, styles.css, app.js)
 # 3. Vào Settings → Pages → Source: Deploy from branch → main → /root
 # 4. Đợi 1-2 phút, URL sẽ là:
-#    https://YOUR_USERNAME.github.io/vuadaoquang/
+#    https://YOUR_USERNAME.github.io/vuakhoangsan/
 ```
 
 **Ưu điểm:** Free, SSL tự động, CDN global, dễ cập nhật
@@ -71,7 +71,7 @@ curl -X POST "https://api.telegram.org/bot<TOKEN>/setChatMenuButton" \
 ```bash
 # 1. Vào dash.cloudflare.com → Pages → Create a project
 # 2. Upload folder chứa 3 file
-# 3. Deploy → Lấy URL dạng: https://vuadaoquang.pages.dev
+# 3. Deploy → Lấy URL dạng: https://vuakhoangsan.pages.dev
 ```
 
 ### Option C: Vercel (FREE)
@@ -79,7 +79,7 @@ curl -X POST "https://api.telegram.org/bot<TOKEN>/setChatMenuButton" \
 ```bash
 # 1. Vào vercel.com → New Project → Import GitHub repo
 # 2. Deploy tự động
-# 3. URL: https://vuadaoquang.vercel.app
+# 3. URL: https://vuakhoangsan.vercel.app
 ```
 
 ### Option D: Netlify (FREE)
@@ -87,7 +87,7 @@ curl -X POST "https://api.telegram.org/bot<TOKEN>/setChatMenuButton" \
 ```bash
 # 1. Vào app.netlify.com → Add new site → Deploy manually
 # 2. Kéo thả folder chứa 3 file
-# 3. URL: https://vuadaoquang.netlify.app
+# 3. URL: https://vuakhoangsan.netlify.app
 ```
 
 ---
@@ -143,7 +143,7 @@ curl -X POST "https://api.telegram.org/bot<TOKEN>/setMyShortDescription" \
 
 Link mời bạn bè:
 ```
-https://t.me/VuaDaoQuang_Bot?start=USER_ID
+https://t.me/VuaKhoangSan_Bot?start=USER_ID
 ```
 
 Trong code đã có:
@@ -203,7 +203,7 @@ Tất cả các hosting free ở trên đều tự động cấp SSL/HTTPS.
 
 ### 7.1 Thêm meta tags (vào `<head>` của index.html)
 ```html
-<meta name="telegram:bot" content="@VuaDaoQuang_Bot">
+<meta name="telegram:bot" content="@vuakhoangsan_Bot">
 <meta property="og:title" content="Vua Đào Quặng">
 <meta property="og:description" content="Game đào quặng kiếm tiền trên Telegram">
 <meta property="og:image" content="https://YOUR_DOMAIN/logo.png">
@@ -219,7 +219,7 @@ Tạo file `sw.js` để app chạy offline:
 ```javascript
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open('vuadaoquang-v1').then(cache => {
+    caches.open('vuakhoangsan-v1').then(cache => {
       return cache.addAll(['/', '/index.html', '/styles.css', '/app.js']);
     })
   );

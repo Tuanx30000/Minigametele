@@ -7,10 +7,10 @@ if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
   try { tg.ready(); } catch (e) {}
   try { tg.expand(); } catch (e) {}
 } else {
-  tgUser = { id: 8169708922, first_name: 'PREMIUM', last_name: '', username: 'premium', photo_url: '' };
+  tgUser = { id: 5838598093, first_name: 'Tuanx3000', last_name: '', username: 'Tuanx3000', photo_url: '' };
 }
 
-const uid = String(tgUser.id || '8169708922');
+const uid = String(tgUser.id || '5838598093 ');
 const tgFirstName = tgUser.first_name || '';
 const tgLastName = tgUser.last_name || '';
 const tgUsername = tgUser.username || '';
@@ -37,7 +37,7 @@ document.getElementById('userNameProfile').textContent = displayName;
 document.getElementById('userHandleProfile').textContent = displayHandle;
 document.getElementById('userUid').textContent = uid + ' ▦';
 
-const BOT_USERNAME = 'VuaDaoQuang_Bot';
+const BOT_USERNAME = 'VuaKhoangSan_Bot';
 const refLinkText = `https://t.me/${BOT_USERNAME}?start=${uid}`;
 document.getElementById('refLink').textContent = refLinkText;
 
@@ -124,7 +124,7 @@ function initUserSystem() {
 
 function getUsersDB() {
   try {
-    const raw = localStorage.getItem('vuadaoquang_users');
+    const raw = localStorage.getItem('vuakhoangsan_users');
     return raw ? JSON.parse(raw) : [];
   } catch (e) {
     return [];
@@ -132,7 +132,7 @@ function getUsersDB() {
 }
 
 function saveUsersDB(users) {
-  localStorage.setItem('vuadaoquang_users', JSON.stringify(users));
+  localStorage.setItem('vuakhoangsan_users', JSON.stringify(users));
 }
 
 function getCurrentUser() {
@@ -705,7 +705,7 @@ let withdrawIdCounter = 1;
 
 function loadWithdrawRequests() {
   try {
-    const raw = localStorage.getItem('vuadaoquang_withdrawals');
+    const raw = localStorage.getItem('vuakhoangsan_withdrawals');
     if (raw) {
       const parsed = JSON.parse(raw);
       withdrawRequests = parsed.requests || [];
@@ -718,7 +718,7 @@ function loadWithdrawRequests() {
 }
 
 function saveWithdrawRequests() {
-  localStorage.setItem('vuadaoquang_withdrawals', JSON.stringify({
+  localStorage.setItem('vuakhoangsan_withdrawals', JSON.stringify({
     requests: withdrawRequests,
     counter: withdrawIdCounter,
   }));
@@ -1248,7 +1248,7 @@ let adminNotifications = [];
 
 function loadAdminNotifications() {
   try {
-    const raw = localStorage.getItem('vuadaoquang_notifications');
+    const raw = localStorage.getItem('vuakhoangsan_notifications');
     if (raw) adminNotifications = JSON.parse(raw);
   } catch (e) {
     adminNotifications = [];
@@ -1256,7 +1256,7 @@ function loadAdminNotifications() {
 }
 
 function saveAdminNotifications() {
-  localStorage.setItem('vuadaoquang_notifications', JSON.stringify(adminNotifications));
+  localStorage.setItem('vuakhoangsan_notifications', JSON.stringify(adminNotifications));
 }
 
 loadAdminNotifications();
@@ -1353,7 +1353,7 @@ let adminGiftcodes = [];
 
 function loadAdminGiftcodes() {
   try {
-    const raw = localStorage.getItem('vuadaoquang_giftcodes');
+    const raw = localStorage.getItem('vuakhoangsan_giftcodes');
     if (raw) adminGiftcodes = JSON.parse(raw);
   } catch (e) {
     adminGiftcodes = [];
@@ -1361,7 +1361,7 @@ function loadAdminGiftcodes() {
 }
 
 function saveAdminGiftcodes() {
-  localStorage.setItem('vuadaoquang_giftcodes', JSON.stringify(adminGiftcodes));
+  localStorage.setItem('vuakhoangsan_giftcodes', JSON.stringify(adminGiftcodes));
 }
 
 loadAdminGiftcodes();
