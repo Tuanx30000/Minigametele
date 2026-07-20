@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="telegram:bot" content="@VuaDaoQuang_Bot">
+  <meta property="og:title" content="Vua Đào Quặng">
+  <meta property="og:description" content="Game đào quặng kiếm tiền trên Telegram">
+  <title>Vua Đào Quặng</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Loading -->
+  <div id="loadingScreen">
+    <div class="logo-1">1'</div>
+    <div class="loading-text">ĐANG TẢI DỮ LIỆU...</div>
+    <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <!-- Admin Panel Overlay -->
+  <div id="adminOverlay" class="admin-overlay hidden">
+    <div class="admin-panel">
+      <div class="admin-header">
+        <span class="admin-title">⚙ ADMIN PANEL</span>
+        <button class="admin-close" onclick="closeAdmin()">✕</button>
+      </div>
+
+      <!-- Admin Login -->
+      <div id="adminLogin" class="admin-section">
+        <div class="admin-lock-icon">🔒</div>
+        <div class="admin-label">Nhập mật khẩu Admin</div>
+        <input id="adminPass" type="password" class="admin-input" placeholder="Admin password..." onkeydown="if(event.key==='Enter')tryAdminLogin()">
+        <button class="admin-btn" onclick="tryAdminLogin()">ĐĂNG NHẬP</button>
+        <div id="adminLoginMsg" class="admin-msg"></div>
+      </div>
+
+      <!-- Admin Dashboard -->
+      <div id="adminDash" class="admin-section hidden">
+        <!-- Sub-tabs -->
+        <div class="admin-subtabs">
+          <button id="admSub-btn-users" class="adm-sub-btn adm-sub-active" onclick="admSub('users')">NGƯỜI DÙNG</button>
+          <button id="admSub-btn-withdraw" class="adm-sub-btn adm-sub-inactive" onclick="admSub('withdraw')">RÚT TIỀN</button>
+          <button id="admSub-btn-notify" class="adm-sub-btn adm-sub-inactive" onclick="admSub('notify')">THÔNG BÁO</button>
+          <button id="admSub-btn-gift" class="adm-sub-btn adm-sub-inactive" onclick="admSub('gift')">GIFTCODE</button>
+          <button id="admSub-btn-config" class="adm-sub-btn adm-sub-inactive" onclick="admSub('config')">CẤU HÌNH</button>
+        </div>
+
+        <!-- Tab: Users -->
+        <div id="admTab-users" class="adm-tab">
+          <div class="adm-search-row">
+            <input id="admSearchUser" class="admin-input" placeholder="Tìm UID hoặc tên..." oninput="renderAdminUsers()">
+          </div>
+          <div id="admUserList" class="adm-list"></div>
+        </div>
+
+        <!-- Tab: Withdraw -->
+        <div id="admTab-withdraw" class="adm-tab hidden">
+          <div class="adm-stats-row">
+            <div class="adm-stat"><span class="adm-stat-label">Chờ duyệt</span><span class="adm-stat-val" id="wdPending">0</span></div>
+            <div class="adm-stat"><span class="adm-stat-label">Đã duyệt</span><span class="adm-stat-val" id="wdApproved">0</span></div>
+            <div class="adm-stat"><span class="adm-stat-label">Từ chối</span><span class="adm-stat-val" id="wdRejected">0</span></div>
+          </div>
+          <div id="admWithdrawList" class="adm-list"></div>
+        </div>
+
+        <!-- Tab: Notify -->
+        <div id="admTab-notify" class="adm-tab hidden">
+          <div class="adm-field">
+            <label class="admin-label">Tiêu đề thông báo</label>
+            <input id="admNotifyTitle" class="admin-input" placeholder="VD: Bảo trì hệ thống...">
+          </div>
+          <div class="adm-field">
+            <label class="admin-label">Nội dung</label>
+            <textarea id="admNotifyBody" class="admin-textarea" rows="4" placeholder="Nội dung thông báo..."></textarea>
+          </div>
+          <div class="adm-field">
+            <label class="admin-label">Loại</label>
+            <select id="admNotifyType" class="admin-select">
+              <option value="info">ℹ Thông tin</option>
+              <option value="success">✅ Thành công</option>
+              <option value="warning">⚠ Cảnh báo</option>
+              <option value="danger">🚨 Khẩn cấp</option>
+            </select>
+          </div>
+          <button class="admin-btn" onclick="sendNotify()">GỬI THÔNG BÁO</button>
+          <div class="adm-divider"></div>
+          <div class="admin-label">Thông báo đã gửi</div>
+          <div id="admNotifyList" class="adm-list"></div>
+        </div>
+
+        <!-- Tab: Giftcode -->
+        <div id="admTab-gift" class="adm-tab hidden">
+          <div class="adm-field">
+            <label class="admin-label">Mã Giftcode</label>
+            <input id="admGiftCode" class="admin-input" placeholder="VD: TET2026">
+          </div>
+          <div class="adm-field">
+            <label class="admin-label">Phần thưởng (Quặng)</label>
+            <input id="admGiftReward" class="admin-input" type="number" placeholder="VD: 500">
+          </div>
+          <div class="adm-field">
+            <label class="admin-label">Số lượt dùng tối đa</label>
+            <input id="admGiftLimit" class="admin-input" type="number" placeholder="VD: 100">
+          </div>
+          <button class="admin-btn" onclick="createGiftcode()">TẠO GIFTCODE</button>
+          <div class="adm-divider"></div>
+          <div class="admin-label">Danh sách Giftcode</div>
+          <div id="admGiftList" class="adm-list"></div>
+        </div>
+
+        <!-- Tab: Config -->
+        <div id="admTab-config" class="adm-tab hidden">
+          <div class="adm-field">
+            <label class="admin-label">Tốc độ đào mặc định (/s)</label>
+            <input id="admCfgRate" class="admin-input" type="number" step="0.000001" placeholder="0.000139">
+          </div>
+          <div class="adm-field">
+            <label class="admin-label">Tỷ giá (Quặng = VND)</label>
+            <input id="admCfgRate2" class="admin-input" type="number" step="0.01" placeholder="0.8">
+          </div>
+          <div class="adm-field">
+            <label class="admin-label">Phí rút (%)</label>
+            <input id="admCfgFee" class="admin-input" type="number" placeholder="10">
+          </div>
+          <div class="adm-field">
+            <label class="admin-label">Rút tối thiểu</label>
+            <input id="admCfgMin" class="admin-input" type="number" placeholder="5000">
+          </div>
+          <div class="adm-field">
+            <label class="admin-label">Rút tối đa</label>
+            <input id="admCfgMax" class="admin-input" type="number" placeholder="25000">
+          </div>
+          <button class="admin-btn" onclick="saveConfig()">LƯU CẤU HÌNH</button>
+          <div class="adm-divider"></div>
+          <div class="admin-label">Quản lý Jackpot</div>
+          <div class="adm-field">
+            <label class="admin-label">Số Quặng thêm/bớt</label>
+            <input id="admCfgJackpot" class="admin-input" type="number" placeholder="VD: 50000 hoặc -50000">
+          </div>
+          <button class="admin-btn admin-btn-warn" onclick="adjustJackpot()">ĐIỀU CHỈNH JACKPOT</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Banner (user-facing) -->
+  <div id="notifyBanner" class="notify-banner hidden"></div>
+
+  <div class="app-shell">
+    <!-- TOP BAR -->
+    <div class="topbar">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="avatar-ring">
+          <div id="avatarBox" class="avatar-inner">P</div>
+        </div>
+        <div style="min-width:0">
+          <div class="premium-label truncate" id="userName">PREMIUM</div>
+          <div style="font-size:10px;color:#94a3b8;font-weight:600" id="userHandle">@...</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="balance-pill">
+          <span id="topBalance" class="tabular font-extrabold text-slate-800 text-sm">0</span>
+          <span class="coin">●</span>
+        </div>
+        <button class="bag-btn" onclick="openInventory()" aria-label="Túi đồ">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 7h12l-1 13H7L6 7z"></path>
+            <path d="M9 7a3 3 0 0 1 6 0"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="main">
+      <!-- ===================== TAB HOME: MÁY ĐÀO ===================== -->
+      <div id="tab-home" class="tab-content">
+        <div class="marquee-wrap">
+          <div class="marquee-track">
+            ⛏ Chào mừng thợ đào! Khởi động máy đào để tích lũy Quặng. Mời bạn bè nhận ngay +5 Điểm và 1 Mảnh VQMM. Chúc bạn chơi game vui vẻ!
+          </div>
+        </div>
+
+        <div class="card level-row">
+          <div class="flex-1 min-w-0">
+            <div class="level-badge">
+              <span>⛏</span>
+              <span>CẤP <span id="userLevel">0</span></span>
+            </div>
+            <div class="xp-bar"><div id="xpBar" class="xp-fill" style="width:0%"></div></div>
+            <div class="text-[11px] text-slate-400 mt-1 tabular">XP: <span id="xpCurrent">0</span>/<span id="xpNeeded">120</span></div>
+          </div>
+          <div class="rate-text">●/s: <span id="rateDisplay" class="tabular">0.000139</span></div>
+        </div>
+
+        <div class="card mine-card">
+          <div class="logo-1 sm">1'</div>
+          <div class="pending-label">SẢN LƯỢNG ĐANG CHỜ</div>
+          <div id="pendingDisplay" class="pending-value tabular">0.000000</div>
+          <button id="mineBtn" class="btn-primary" onclick="toggleMining()">▶ KHỞI ĐỘNG MÁY ĐÀO</button>
+        </div>
+
+        <div class="section-title">
+          <span style="color:#8b5cf6">▣</span>
+          <span>NHIỆM VỤ HÀNG NGÀY</span>
+        </div>
+
+        <div class="mission-grid">
+          <div class="card mission-card">
+            <div class="mission-icon" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#0284c7">📅</div>
+            <div class="mission-title">Điểm Danh</div>
+            <div class="mission-sub" style="color:#0ea5e9">+1 Điểm</div>
+            <button id="checkinBtn" class="btn-outline blue" onclick="doCheckin()">Làm ngay</button>
+          </div>
+          <div class="card mission-card">
+            <div class="mission-icon" style="background:linear-gradient(135deg,#fee2e2,#fecaca);color:#dc2626">▶</div>
+            <div class="mission-title" style="color:#dc2626">Xem Quảng Cáo</div>
+            <div class="mission-sub" style="color:#ef4444">Nhận Quặng & Điểm</div>
+            <button class="btn-outline red" onclick="watchAd()">Xem video</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== TAB CAMP / GIẢI TRÍ ===================== -->
+      <div id="tab-camp" class="tab-content hidden">
+        <div class="subtabs">
+          <button id="subcamp-btn-farm" class="subtab-btn subtab-active" onclick="showSubTab('camp','farm')">TRẠI MÁY ĐÀO</button>
+          <button id="subcamp-btn-spin" class="subtab-btn subtab-inactive" onclick="showSubTab('camp','spin')">VÒNG QUAY VIP</button>
+        </div>
+
+        <div id="subcamp-farm" class="subtab-content">
+          <div class="panel-title"><span style="color:#8b5cf6">⚙</span> TRẠI MÁY ĐÀO TỰ ĐỘNG</div>
+          <div class="info-banner">
+            Máy đào thụ động, cần thu hoạch trước khi đầy chu kỳ. Phải bảo trì mỗi 10 ngày để máy tiếp tục chạy!
+          </div>
+          <div id="machineList"></div>
+        </div>
+
+        <div id="subcamp-spin" class="subtab-content hidden">
+          <div class="card spin-card">
+            <div class="panel-title" style="margin-bottom:8px"><span style="color:#ef4444">◎</span> VÒNG QUAY MAY MẮN</div>
+            <div class="info-banner" style="background:linear-gradient(135deg,#e0f2fe,#bae6fd);color:#0369a1;border-color:#7dd3fc">
+              Nhận 1 mảnh VQMM khi giới thiệu bạn bè thành công
+            </div>
+            <div class="jackpot-box">
+              <div class="jackpot-label">QUỸ JACKPOT LŨY TIẾN (10% Rút)</div>
+              <div class="jackpot-value tabular"><span id="jackpotValue">1,331,716</span> <span class="coin">●</span></div>
+            </div>
+
+            <div class="wheel-wrap">
+              <div class="wheel-pointer"></div>
+              <div id="wheel" class="wheel">
+                <div class="wheel-center"></div>
+              </div>
+            </div>
+
+            <div class="spin-stats">
+              <div class="stat-box">
+                <div class="stat-label">MẢNH VQMM</div>
+                <div class="stat-value tabular" id="fragmentCount">0<span style="color:#94a3b8;font-size:14px">/15</span></div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">VÉ HIỆN CÓ</div>
+                <div class="stat-value tabular" id="ticketCount">0</div>
+              </div>
+            </div>
+
+            <div class="spin-actions">
+              <button class="btn-muted" onclick="exchangeTicket()">↻ ĐỔI VÉ</button>
+              <button class="btn-spin" onclick="spinWheel()">▶ QUAY SỐ</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== TAB INVITE ===================== -->
+      <div id="tab-invite" class="tab-content hidden">
+        <div class="subtabs">
+          <button id="subinvite-btn-ref" class="subtab-btn subtab-active" onclick="showSubTab('invite','ref')">GIỚI THIỆU</button>
+          <button id="subinvite-btn-rank" class="subtab-btn subtab-inactive" onclick="showSubTab('invite','rank')">BẢNG XẾP HẠNG</button>
+        </div>
+
+        <div id="subinvite-ref" class="subtab-content">
+          <div class="card" style="padding:16px">
+            <div class="panel-title" style="color:#0ea6e9"><span>👤</span> GIỚI THIỆU NHẬN THƯỞNG</div>
+
+            <div class="ref-box">
+              <div class="ref-title">LINK MỜI CỦA BẠN</div>
+              <div class="ref-row">
+                <div id="refLink" class="ref-link">https://t.me/VuaDaoQuang_Bot?start=...</div>
+                <button class="btn-copy" onclick="copyRefLink()">COPY</button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5 mb-1">
+              <div class="stat-box">
+                <div class="stat-label">TỔNG BẠN BÈ</div>
+                <div class="stat-value" style="color:#0ea6e9" id="totalFriends">0</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">REF HÔM NAY</div>
+                <div class="stat-value" style="color:#16a34a" id="todayRefs">+0</div>
+              </div>
+            </div>
+
+            <div class="promo-box">
+              <strong>⚡ KHUYẾN MÃI ĐĂNG KÝ MỚI:</strong><br>
+              Người được mời chỉ cần mở Bot là bạn được tính 1 Ref hợp lệ ngay lập tức!
+              Nhận ngay 500 Quặng, 5 Điểm và 1 Mảnh VQMM.
+            </div>
+
+            <div class="panel-title" style="margin-top:8px"><span>🎁</span> MỐC THƯỞNG HỘP BÍ ẨN</div>
+            <div id="milestones"></div>
+          </div>
+        </div>
+
+        <div id="subinvite-rank" class="subtab-content hidden">
+          <div class="card" style="padding:16px">
+            <div class="panel-title">🏆 BẢNG XẾP HẠNG MỜI BẠN</div>
+            <div class="rank-empty">Chưa có dữ liệu xếp hạng.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== TAB SHOP ===================== -->
+      <div id="tab-shop" class="tab-content hidden">
+        <div class="panel-title"><span>🏪</span> CỬA HÀNG CHUYÊN DỤNG</div>
+        <div class="shop-note">*Vật phẩm sau khi mua sẽ được cất vào Túi đồ góc phải trên cùng.</div>
+        <div id="shopGrid" class="shop-grid"></div>
+      </div>
+
+      <!-- ===================== TAB PROFILE ===================== -->
+      <div id="tab-profile" class="tab-content hidden">
+        <div class="subtabs">
+          <button id="subprofile-btn-overview" class="subtab-btn subtab-active" onclick="showSubTab('profile','overview')">TỔNG QUAN</button>
+          <button id="subprofile-btn-bank" class="subtab-btn subtab-inactive" onclick="showSubTab('profile','bank')">RÚT TIỀN (BANK)</button>
+        </div>
+
+        <div id="subprofile-overview" class="subtab-content">
+          <div class="card profile-info">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+              <div class="avatar-ring" style="width:48px;height:48px">
+                <div id="avatarBoxProfile" class="avatar-inner">P</div>
+              </div>
+              <div style="min-width:0">
+                <div style="font-weight:800;font-size:15px;color:#1e293b" id="userNameProfile">PREMIUM</div>
+                <div style="font-size:11px;color:#94a3b8;font-weight:600" id="userHandleProfile">@...</div>
+              </div>
+            </div>
+            <div class="info-line"><span>Mã UID:</span><span id="userUid" onclick="adminTap()" style="cursor:pointer;user-select:none">8169708922 ▦</span></div>
+            <div class="info-line"><span>Tham gia:</span><span id="joinDate">20/7/2026</span></div>
+          </div>
+
+          <div class="card balance-hero">
+            <div class="balance-hero-label">SỐ DƯ QUẶNG (KHẢ DỤNG)</div>
+            <div class="balance-hero-value tabular"><span id="profileBalance">0</span> <span style="font-size:16px">QUẶNG</span></div>
+          </div>
+
+          <div class="profile-stats">
+            <div class="card pstat">
+              <div class="pstat-label">CẤP MÁY</div>
+              <div class="pstat-value" style="color:#ef4444">Lv.<span id="profileLevel">0</span></div>
+            </div>
+            <div class="card pstat">
+              <div class="pstat-label">ĐIỂM TÍCH</div>
+              <div class="pstat-value" style="color:#8b5cf6" id="pointsValue">0</div>
+            </div>
+            <div class="card pstat">
+              <div class="pstat-label">ĐÃ RÚT</div>
+              <div class="pstat-value" style="color:#f59e0b" id="withdrawnValue">0k</div>
+            </div>
+          </div>
+
+          <div class="gift-row">
+            <input id="giftCode" class="gift-input" type="text" placeholder="Nhập Giftcode nhận quà...">
+            <button class="gift-btn" onclick="claimGift()">NHẬN QUÀ</button>
+          </div>
+        </div>
+
+        <div id="subprofile-bank" class="subtab-content hidden">
+          <div class="card" style="padding:16px">
+            <div class="panel-title"><span style="color:#ef4444">▣</span> RÚT TIỀN VỀ NGÂN HÀNG</div>
+            <div class="bank-warn">
+              Tỷ giá: <strong>30 Quặng = 1 VND</strong><br>
+              Hạn mức: Rút từ <strong>8,000 VND (240,000 Quặng)</strong> trở lên.<br>
+              Hệ thống thu phí <strong>10%</strong> để chuyển vào Quỹ Jackpot.
+            </div>
+
+            <div class="field">
+              <label>Tên Ngân Hàng:</label>
+              <input id="bankName" type="text" placeholder="VD: MB Bank, Vietcombank...">
+            </div>
+            <div class="field">
+              <label>Tên Chủ Tài Khoản:</label>
+              <input id="bankOwner" type="text" placeholder="Viết hoa không dấu. VD: NGUYEN VAN A">
+            </div>
+            <div class="field">
+              <label>Số Tài Khoản:</label>
+              <input id="bankNumber" type="text" inputmode="numeric" placeholder="Nhập chính xác số tài khoản">
+            </div>
+            <div class="field">
+              <label>Số Quặng Muốn Rút:</label>
+              <input id="bankAmount" class="highlight" type="number" inputmode="numeric" placeholder="Nhập số lượng...">
+            </div>
+            <button class="btn-withdraw" onclick="submitWithdraw()">✈ TẠO LỆNH RÚT TIỀN</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <div class="bottom-nav">
+      <button onclick="showTab('camp')" id="nav-camp" class="nav-btn nav-inactive">
+        <span class="nav-ico">🎮</span>
+        <span class="nav-label">Giải Trí</span>
+      </button>
+      <button onclick="showTab('invite')" id="nav-invite" class="nav-btn nav-inactive">
+        <span class="nav-ico">👥</span>
+        <span class="nav-label">Mời Bạn</span>
+      </button>
+      <button onclick="showTab('home')" id="nav-home" class="nav-btn nav-active">
+        <span class="nav-ico"><span class="logo-1 nav">1'</span></span>
+        <span class="nav-label">Máy Đào</span>
+      </button>
+      <button onclick="showTab('shop')" id="nav-shop" class="nav-btn nav-inactive">
+        <span class="nav-ico">🏪</span>
+        <span class="nav-label">Cửa Hàng</span>
+      </button>
+      <button onclick="showTab('profile')" id="nav-profile" class="nav-btn nav-inactive">
+        <span class="nav-ico">👤</span>
+        <span class="nav-label">Hồ Sơ</span>
+      </button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
