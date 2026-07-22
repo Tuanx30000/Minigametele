@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -24,11 +24,22 @@
   <!-- Toast -->
   <div id="toast" class="toast"></div>
 
+  <!-- Theme Toggle -->
+  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Chuyển đổi giao diện">
+    🌙
+  </button>
+
+  <!-- Sync Status -->
+  <div class="sync-status offline" id="syncStatus">
+    <span id="syncDot">●</span>
+    <span id="syncText">Offline</span>
+  </div>
+
   <!-- Admin Panel Overlay -->
   <div id="adminOverlay" class="admin-overlay hidden">
     <div class="admin-panel">
       <div class="admin-header">
-        <span class="admin-title">⚙ ADMIN PANEL</span>
+        <span class="admin-title">⚙ ADMIN PANEL v3.0</span>
         <button class="admin-close" onclick="closeAdmin()">✕</button>
       </div>
 
@@ -45,17 +56,24 @@
       <div id="adminDash" class="admin-section hidden">
         <!-- Sub-tabs -->
         <div class="admin-subtabs">
-          <button id="admSub-btn-users" class="adm-sub-btn adm-sub-active" onclick="admSub('users')">NGƯỜI DÙNG</button>
-          <button id="admSub-btn-withdraw" class="adm-sub-btn adm-sub-inactive" onclick="admSub('withdraw')">RÚT TIỀN</button>
-          <button id="admSub-btn-notify" class="adm-sub-btn adm-sub-inactive" onclick="admSub('notify')">THÔNG BÁO</button>
-          <button id="admSub-btn-gift" class="adm-sub-btn adm-sub-inactive" onclick="admSub('gift')">GIFTCODE</button>
-          <button id="admSub-btn-config" class="adm-sub-btn adm-sub-inactive" onclick="admSub('config')">CẤU HÌNH</button>
+          <button id="admSub-btn-users" class="adm-sub-btn adm-sub-active" onclick="admSub('users')">👤 NGƯỜI DÙNG</button>
+          <button id="admSub-btn-withdraw" class="adm-sub-btn adm-sub-inactive" onclick="admSub('withdraw')">💰 RÚT TIỀN</button>
+          <button id="admSub-btn-notify" class="adm-sub-btn adm-sub-inactive" onclick="admSub('notify')">📢 THÔNG BÁO</button>
+          <button id="admSub-btn-gift" class="adm-sub-btn adm-sub-inactive" onclick="admSub('gift')">🎁 GIFTCODE</button>
+          <button id="admSub-btn-config" class="adm-sub-btn adm-sub-inactive" onclick="admSub('config')">⚙ CẤU HÌNH</button>
+          <button id="admSub-btn-db" class="adm-sub-btn adm-sub-inactive" onclick="admSub('db')">🗄 DATABASE</button>
+          <button id="admSub-btn-logs" class="adm-sub-btn adm-sub-inactive" onclick="admSub('logs')">📋 LOGS</button>
         </div>
 
         <!-- Tab: Users -->
         <div id="admTab-users" class="adm-tab">
           <div class="adm-search-row">
-            <input id="admSearchUser" class="admin-input" placeholder="Tìm UID hoặc tên..." oninput="renderAdminUsers()">
+            <input id="admSearchUser" class="admin-input" placeholder="Tìm UID, tên, username..." oninput="renderAdminUsers()">
+          </div>
+          <div class="adm-stats-row">
+            <div class="adm-stat"><span class="adm-stat-label">Tổng User</span><span class="adm-stat-val" id="admTotalUsers">0</span></div>
+            <div class="adm-stat"><span class="adm-stat-label">Online</span><span class="adm-stat-val" id="admOnlineUsers">0</span></div>
+            <div class="adm-stat"><span class="adm-stat-label">Bị Ban</span><span class="adm-stat-val" id="admBannedUsers">0</span></div>
           </div>
           <div id="admUserList" class="adm-list"></div>
         </div>
@@ -89,7 +107,7 @@
               <option value="danger">🚨 Khẩn cấp</option>
             </select>
           </div>
-          <button class="admin-btn" onclick="sendNotify()">GỬI THÔNG BÁO</button>
+          <button class="admin-btn" onclick="sendNotify()">GỬI THÔNG BÁO TOÀN SERVER</button>
           <div class="adm-divider"></div>
           <div class="admin-label">Thông báo đã gửi</div>
           <div id="admNotifyList" class="adm-list"></div>
@@ -146,6 +164,84 @@
           </div>
           <button class="admin-btn admin-btn-warn" onclick="adjustJackpot()">ĐIỀU CHỈNH JACKPOT</button>
         </div>
+
+        <!-- Tab: Database -->
+        <div id="admTab-db" class="adm-tab hidden">
+          <div class="adm-field">
+            <label class="admin-label">🗄 QUẢN LÝ DATABASE</label>
+            <div style="background:var(--bg-secondary);border:1px solid var(--border-strong);border-radius:12px;padding:14px;margin-bottom:12px;">
+              <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">Tổng số user: <strong id="dbTotalUsers">0</strong> | Tổng giao dịch: <strong id="dbTotalTx">0</strong></div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="admin-btn-sm blue" onclick="dbExportJSON()">📥 Export JSON</button>
+                <button class="admin-btn-sm green" onclick="dbImportJSON()">📤 Import JSON</button>
+                <button class="admin-btn-sm amber" onclick="dbBackup()">💾 Backup</button>
+                <button class="admin-btn-sm gray" onclick="dbRestore()">♻️ Restore</button>
+                <button class="admin-btn-sm red" onclick="dbReset()">🗑 Reset All</button>
+              </div>
+            </div>
+          </div>
+          <div class="adm-field">
+            <label class="admin-label">Chỉnh sửa User trực tiếp (JSON)</label>
+            <textarea id="dbUserEdit" class="admin-textarea" rows="6" placeholder="Paste JSON user object..."></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button class="admin-btn-sm blue" onclick="dbLoadUserJSON()">🔍 Load User</button>
+              <button class="admin-btn-sm green" onclick="dbSaveUserJSON()">💾 Lưu User</button>
+              <button class="admin-btn-sm red" onclick="dbDeleteUserJSON()">🗑 Xóa User</button>
+            </div>
+            <div id="dbUserEditMsg" class="admin-msg"></div>
+          </div>
+          <div class="adm-field">
+            <label class="admin-label">Bulk Edit — Thêm Quặng cho tất cả</label>
+            <div style="display:flex;gap:8px;">
+              <input id="dbBulkAmount" class="admin-input" type="number" placeholder="Số Quặng (+/-)">
+              <button class="admin-btn-sm green" onclick="dbBulkAddOre()">➕ Thêm</button>
+            </div>
+          </div>
+          <div class="adm-field">
+            <label class="admin-label">Bulk Edit — Thêm Điểm cho tất cả</label>
+            <div style="display:flex;gap:8px;">
+              <input id="dbBulkPoints" class="admin-input" type="number" placeholder="Số Điểm (+/-)">
+              <button class="admin-btn-sm green" onclick="dbBulkAddPoints()">➕ Thêm</button>
+            </div>
+          </div>
+          <div class="adm-field">
+            <label class="admin-label">Bulk Edit — Ban/Unban theo điều kiện</label>
+            <div style="display:flex;gap:8px;">
+              <select id="dbBulkBanCond" class="admin-select" style="flex:1;">
+                <option value="all">Tất cả user</option>
+                <option value="negative">Balance âm</option>
+                <option value="inactive">Không hoạt động 7 ngày</option>
+              </select>
+              <button class="admin-btn-sm red" onclick="dbBulkBan()">🔒 Ban</button>
+              <button class="admin-btn-sm green" onclick="dbBulkUnban()">🔓 Unban</button>
+            </div>
+          </div>
+          <div class="adm-divider"></div>
+          <div class="admin-label">Raw Database Viewer</div>
+          <div id="dbRawViewer" class="adm-list" style="max-height:300px;font-family:monospace;font-size:11px;"></div>
+        </div>
+
+        <!-- Tab: Logs -->
+        <div id="admTab-logs" class="adm-tab hidden">
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <button class="admin-btn-sm gray" onclick="logsClear()">🗑 Xóa Logs</button>
+            <button class="admin-btn-sm blue" onclick="logsExport()">📥 Export</button>
+          </div>
+          <div id="admLogsList" class="adm-list" style="font-family:monospace;font-size:11px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Edit Modal -->
+  <div id="userEditModal" class="admin-overlay hidden" style="z-index:400;">
+    <div class="admin-panel" style="max-width:380px;">
+      <div class="admin-header">
+        <span class="admin-title">✏️ CHỈNH SỬA USER</span>
+        <button class="admin-close" onclick="closeUserEditModal()">✕</button>
+      </div>
+      <div class="admin-section">
+        <div id="userEditContent"></div>
       </div>
     </div>
   </div>
@@ -161,8 +257,8 @@
           <div id="avatarBox" class="avatar-inner">P</div>
         </div>
         <div style="min-width:0">
-          <div class="premium-label truncate" id="userName">Tuanx3000</div>
-          <div style="font-size:10px;color:#94a3b8;font-weight:600" id="userHandle">@...</div>
+          <div class="premium-label truncate" id="userName">PREMIUM</div>
+          <div style="font-size:10px;color:var(--text-muted);font-weight:600" id="userHandle">@...</div>
         </div>
       </div>
       <div class="flex items-center gap-2">
@@ -195,12 +291,13 @@
               <span>CẤP <span id="userLevel">0</span></span>
             </div>
             <div class="xp-bar"><div id="xpBar" class="xp-fill" style="width:0%"></div></div>
-            <div class="text-[11px] text-slate-400 mt-1 tabular">XP: <span id="xpCurrent">0</span>/<span id="xpNeeded">120</span></div>
+            <div class="text-[11px] mt-1 tabular" style="color:var(--text-muted)">XP: <span id="xpCurrent">0</span>/<span id="xpNeeded">120</span></div>
           </div>
           <div class="rate-text">●/s: <span id="rateDisplay" class="tabular">0.000139</span></div>
         </div>
 
         <div class="card mine-card">
+          <div class="mine-particles" id="mineParticles"></div>
           <div class="logo-1 sm">1'</div>
           <div class="pending-label">SẢN LƯỢNG ĐANG CHỜ</div>
           <div id="pendingDisplay" class="pending-value tabular">0.000000</div>
@@ -208,20 +305,20 @@
         </div>
 
         <div class="section-title">
-          <span style="color:#8b5cf6">▣</span>
+          <span style="color:var(--accent-purple)">▣</span>
           <span>NHIỆM VỤ HÀNG NGÀY</span>
         </div>
 
         <div class="mission-grid">
           <div class="card mission-card">
-            <div class="mission-icon" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#0284c7">📅</div>
+            <div class="mission-icon" style="background:var(--mission-blue-bg);color:#0284c7">📅</div>
             <div class="mission-title">Điểm Danh</div>
-            <div class="mission-sub" style="color:#0ea5e9">+1 Điểm</div>
+            <div class="mission-sub" style="color:var(--accent-blue)">+1 Điểm</div>
             <button id="checkinBtn" class="btn-outline blue" onclick="doCheckin()">Làm ngay</button>
           </div>
           <div class="card mission-card">
-            <div class="mission-icon" style="background:linear-gradient(135deg,#fee2e2,#fecaca);color:#dc2626">▶</div>
-            <div class="mission-title" style="color:#dc2626">Xem Quảng Cáo</div>
+            <div class="mission-icon" style="background:var(--mission-red-bg);color:#dc2626">▶</div>
+            <div class="mission-title" style="color:var(--accent-red)">Xem Quảng Cáo</div>
             <div class="mission-sub" style="color:#ef4444">Nhận Quặng & Điểm</div>
             <button class="btn-outline red" onclick="watchAd()">Xem video</button>
           </div>
@@ -236,7 +333,7 @@
         </div>
 
         <div id="subcamp-farm" class="subtab-content">
-          <div class="panel-title"><span style="color:#8b5cf6">⚙</span> TRẠI MÁY ĐÀO TỰ ĐỘNG</div>
+          <div class="panel-title"><span style="color:var(--accent-purple)">⚙</span> TRẠI MÁY ĐÀO TỰ ĐỘNG</div>
           <div class="info-banner">
             Máy đào thụ động, cần thu hoạch trước khi đầy chu kỳ. Phải bảo trì mỗi 10 ngày để máy tiếp tục chạy!
           </div>
@@ -245,7 +342,7 @@
 
         <div id="subcamp-spin" class="subtab-content hidden">
           <div class="card spin-card">
-            <div class="panel-title" style="margin-bottom:8px"><span style="color:#ef4444">◎</span> VÒNG QUAY MAY MẮN</div>
+            <div class="panel-title" style="margin-bottom:8px"><span style="color:var(--accent-red)">◎</span> VÒNG QUAY MAY MẮN</div>
             <div class="info-banner" style="background:linear-gradient(135deg,#e0f2fe,#bae6fd);color:#0369a1;border-color:#7dd3fc">
               Nhận 1 mảnh VQMM khi giới thiệu bạn bè thành công
             </div>
@@ -264,7 +361,7 @@
             <div class="spin-stats">
               <div class="stat-box">
                 <div class="stat-label">MẢNH VQMM</div>
-                <div class="stat-value tabular" id="fragmentCount">0<span style="color:#94a3b8;font-size:14px">/15</span></div>
+                <div class="stat-value tabular" id="fragmentCount">0<span style="color:var(--text-muted);font-size:14px">/15</span></div>
               </div>
               <div class="stat-box">
                 <div class="stat-label">VÉ HIỆN CÓ</div>
@@ -289,7 +386,7 @@
 
         <div id="subinvite-ref" class="subtab-content">
           <div class="card" style="padding:16px">
-            <div class="panel-title" style="color:#0ea6e9"><span>👤</span> GIỚI THIỆU NHẬN THƯỞNG</div>
+            <div class="panel-title" style="color:var(--accent-blue)"><span>👤</span> GIỚI THIỆU NHẬN THƯỞNG</div>
 
             <div class="ref-box">
               <div class="ref-title">LINK MỜI CỦA BẠN</div>
@@ -302,11 +399,11 @@
             <div class="grid grid-cols-2 gap-2.5 mb-1">
               <div class="stat-box">
                 <div class="stat-label">TỔNG BẠN BÈ</div>
-                <div class="stat-value" style="color:#0ea6e9" id="totalFriends">0</div>
+                <div class="stat-value" style="color:var(--accent-blue)" id="totalFriends">0</div>
               </div>
               <div class="stat-box">
                 <div class="stat-label">REF HÔM NAY</div>
-                <div class="stat-value" style="color:#16a34a" id="todayRefs">+0</div>
+                <div class="stat-value" style="color:var(--accent-green)" id="todayRefs">+0</div>
               </div>
             </div>
 
@@ -324,7 +421,7 @@
         <div id="subinvite-rank" class="subtab-content hidden">
           <div class="card" style="padding:16px">
             <div class="panel-title">🏆 BẢNG XẾP HẠNG MỜI BẠN</div>
-            <div class="rank-empty">Chưa có dữ liệu xếp hạng.</div>
+            <div id="rankList"></div>
           </div>
         </div>
       </div>
@@ -350,8 +447,8 @@
                 <div id="avatarBoxProfile" class="avatar-inner">P</div>
               </div>
               <div style="min-width:0">
-                <div style="font-weight:800;font-size:15px;color:#1e293b" id="userNameProfile">Tuanx3000</div>
-                <div style="font-size:11px;color:#94a3b8;font-weight:600" id="userHandleProfile">@...</div>
+                <div style="font-weight:800;font-size:15px;color:var(--text-primary)" id="userNameProfile">PREMIUM</div>
+                <div style="font-size:11px;color:var(--text-muted);font-weight:600" id="userHandleProfile">@...</div>
               </div>
             </div>
             <div class="info-line"><span>Mã UID:</span><span id="userUid" onclick="adminTap()" style="cursor:pointer;user-select:none">8169708922 ▦</span></div>
@@ -366,15 +463,15 @@
           <div class="profile-stats">
             <div class="card pstat">
               <div class="pstat-label">CẤP MÁY</div>
-              <div class="pstat-value" style="color:#ef4444">Lv.<span id="profileLevel">0</span></div>
+              <div class="pstat-value" style="color:var(--accent-red)">Lv.<span id="profileLevel">0</span></div>
             </div>
             <div class="card pstat">
               <div class="pstat-label">ĐIỂM TÍCH</div>
-              <div class="pstat-value" style="color:#8b5cf6" id="pointsValue">0</div>
+              <div class="pstat-value" style="color:var(--accent-purple)" id="pointsValue">0</div>
             </div>
             <div class="card pstat">
               <div class="pstat-label">ĐÃ RÚT</div>
-              <div class="pstat-value" style="color:#f59e0b" id="withdrawnValue">0k</div>
+              <div class="pstat-value" style="color:var(--accent-gold)" id="withdrawnValue">0k</div>
             </div>
           </div>
 
@@ -386,7 +483,7 @@
 
         <div id="subprofile-bank" class="subtab-content hidden">
           <div class="card" style="padding:16px">
-            <div class="panel-title"><span style="color:#ef4444">▣</span> RÚT TIỀN VỀ NGÂN HÀNG</div>
+            <div class="panel-title"><span style="color:var(--accent-red)">▣</span> RÚT TIỀN VỀ NGÂN HÀNG</div>
             <div class="bank-warn">
               Tỷ giá: <strong>30 Quặng = 1 VND</strong><br>
               Hạn mức: Rút từ <strong>8,000 VND (240,000 Quặng)</strong> trở lên.<br>
@@ -440,6 +537,6 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

@@ -1,4 +1,407 @@
-/* ==================== 1. TELEGRAM + LOADING ==================== */
+/* ==================== 0. FIREBASE IMPORTS & CONFIG ==================== */
+import { db, auth, signInAnonymously, collection, doc, setDoc, getDoc, updateDoc, onSnapshot, query, where, orderBy, limit, serverTimestamp } from './firebase-config.js';
+
+/* ==================== 0.1. THEME SYSTEM ==================== */
+let currentTheme = localStorage.getItem('vuakhoangsan_theme') || 'light';
+
+function initTheme() {
+  document.documentElement.setAttribute('data-theme', currentTheme);
+  updateThemeIcon();
+}
+
+function toggleTheme() {
+  currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', currentTheme);
+  localStorage.setItem('vuakhoangsan_theme', currentTheme);
+  updateThemeIcon();
+  hapticFeedback('light');
+}
+
+function updateThemeIcon() {
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = currentTheme === 'light' ? '🌙' : '☀️';
+}
+
+/* ==================== 0.2. HAPTIC FEEDBACK ==================== */
+function hapticFeedback(type) {
+  if (tg && tg.HapticFeedback) {
+    try {
+      if (type === 'light') tg.HapticFeedback.impactOccurred('light');
+      else if (type === 'medium') tg.HapticFeedback.impactOccurred('medium');
+      else if (type === 'heavy') tg.HapticFeedback.impactOccurred('heavy');
+      else if (type === 'success') tg.HapticFeedback.notificationOccurred('success');
+      else if (type === 'error') tg.HapticFeedback.notificationOccurred('error');
+      else if (type === 'warning') tg.HapticFeedback.notificationOccurred('warning');
+    } catch (e) {}
+  }
+}
+
+/* ==================== 0.3. SYNC STATUS ==================== */
+let isOnline = navigator.onLine;
+let isSyncing = false;
+
+function updateSyncStatus(status) {
+  const el = document.getElementById('syncStatus');
+  const dot = document.getElementById('syncDot');
+  const text = document.getElementById('syncText');
+  if (!el || !dot || !text) return;
+
+  el.className = 'sync-status ' + status;
+  if (status === 'online') {
+    dot.textContent = '●';
+    text.textContent = 'Online';
+  } else if (status === 'offline') {
+    dot.textContent = '○';
+    text.textContent = 'Offline';
+  } else if (status === 'syncing') {
+    dot.textContent = '◐';
+    text.textContent = 'Syncing...';
+  }
+}
+
+window.addEventListener('online', () => { isOnline = true; updateSyncStatus('online'); });
+window.addEventListener('offline', () => { isOnline = false; updateSyncStatus('offline'); });
+
+/* ==================== 0.4. PARTICLE EFFECTS ==================== */
+function spawnMiningParticles() {
+  const container = document.getElementById('mineParticles');
+  if (!container) return;
+
+  for (let i = 0; i < 3; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = (30 + Math.random() * 40) + '%';
+    p.style.bottom = '20%';
+    p.style.animationDelay = (i * 0.2) + 's';
+    container.appendChild(p);
+    setTimeout(() => p.remove(), 2000);
+  }
+}
+
+/* ==================== 0.5. LEVEL UP ANIMATION ==================== */
+function triggerLevelUp() {
+  const levelBadge = document.querySelector('.level-badge');
+  if (levelBadge) {
+    levelBadge.classList.add('level-up-flash');
+    setTimeout(() => levelBadge.classList.remove('level-up-flash'), 800);
+  }
+  hapticFeedback('success');
+}
+
+/* ==================== 0.6. SPIN WIN ANIMATION ==================== */
+function triggerSpinWin() {
+  const wheel = document.getElementById('wheel');
+  if (wheel) {
+    wheel.classList.add('spin-win');
+    setTimeout(() => wheel.classList.remove('spin-win'), 600);
+  }
+  hapticFeedback('success');
+}
+
+/* ==================== 1. DATABASE ENGINE (FIREBASE + FALLBACK) ==================== */
+const DB = {
+  prefix: 'vuakhoangsan_',
+
+  // Firebase references
+  userRef: null,
+  usersRef: null,
+  withdrawalsRef: null,
+  configRef: null,
+  logsRef: null,
+
+  async initFirebase() {
+    try {
+      // Sign in anonymously
+      const cred = await signInAnonymously(auth);
+      console.log('[TUANX3000] Firebase auth:', cred.user.uid);
+
+      // Set up references
+      this.usersRef = collection(db, 'users');
+      this.withdrawalsRef = collection(db, 'withdrawals');
+      this.configRef = doc(db, 'config', 'global');
+      this.logsRef = collection(db, 'logs');
+
+      updateSyncStatus('online');
+      return true;
+    } catch (e) {
+      console.error('[TUANX3000] Firebase init failed:', e);
+      updateSyncStatus('offline');
+      return false;
+    }
+  },
+
+  get(key) {
+    try {
+      const raw = localStorage.getItem(this.prefix + key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  },
+
+  set(key, value) {
+    localStorage.setItem(this.prefix + key, JSON.stringify(value));
+    this.log('DB_SET', { key, timestamp: new Date().toISOString() });
+
+    // Sync to Firebase if online
+    if (isOnline && this.userRef) {
+      this.syncToFirebase(key, value);
+    }
+  },
+
+  async syncToFirebase(key, value) {
+    try {
+      updateSyncStatus('syncing');
+      if (key === 'users') {
+        // Batch update users
+        const users = value || [];
+        for (const user of users) {
+          const userDoc = doc(this.usersRef, user.uid);
+          await setDoc(userDoc, { ...user, updatedAt: serverTimestamp() }, { merge: true });
+        }
+      } else if (key === 'withdrawals') {
+        const withdrawals = value?.requests || [];
+        for (const req of withdrawals) {
+          const reqDoc = doc(this.withdrawalsRef, String(req.id));
+          await setDoc(reqDoc, { ...req, updatedAt: serverTimestamp() }, { merge: true });
+        }
+      } else if (key === 'config') {
+        await setDoc(this.configRef, { ...value, updatedAt: serverTimestamp() }, { merge: true });
+      }
+      updateSyncStatus('online');
+    } catch (e) {
+      console.error('[TUANX3000] Sync failed:', e);
+      updateSyncStatus('offline');
+    }
+  },
+
+  async loadFromFirebase() {
+    if (!isOnline) return false;
+    try {
+      updateSyncStatus('syncing');
+
+      // Load config
+      const configSnap = await getDoc(this.configRef);
+      if (configSnap.exists()) {
+        const config = configSnap.data();
+        this.set('config', config);
+        if (config.miningRate > 0) miningRate = config.miningRate;
+        if (config.EXCHANGE_RATE > 0) EXCHANGE_RATE = config.EXCHANGE_RATE;
+        if (config.FEE_PERCENT >= 0) FEE_PERCENT = config.FEE_PERCENT;
+        if (config.MIN_WITHDRAW > 0) MIN_WITHDRAW = config.MIN_WITHDRAW;
+        if (config.MAX_WITHDRAW > 0) MAX_WITHDRAW = config.MAX_WITHDRAW;
+      }
+
+      // Load users
+      const usersSnap = await getDocs(query(this.usersRef, limit(1000)));
+      const users = [];
+      usersSnap.forEach(d => users.push(d.data()));
+      if (users.length > 0) {
+        this.set('users', users);
+      }
+
+      updateSyncStatus('online');
+      return true;
+    } catch (e) {
+      console.error('[TUANX3000] Load from Firebase failed:', e);
+      updateSyncStatus('offline');
+      return false;
+    }
+  },
+
+  setupRealtimeListeners() {
+    if (!isOnline || !this.withdrawalsRef) return;
+
+    // Real-time withdrawals listener for admin
+    onSnapshot(query(this.withdrawalsRef, orderBy('createdAt', 'desc'), limit(50)), (snap) => {
+      const requests = [];
+      snap.forEach(d => requests.push(d.data()));
+      if (requests.length > 0) {
+        withdrawRequests = requests;
+        if (isAdminLoggedIn) {
+          renderAdminWithdrawals();
+        }
+      }
+    });
+
+    // Real-time users listener
+    onSnapshot(query(this.usersRef, limit(1000)), (snap) => {
+      const users = [];
+      snap.forEach(d => users.push(d.data()));
+      if (users.length > 0) {
+        this.set('users', users);
+        if (isAdminLoggedIn) {
+          renderAdminUsers();
+        }
+      }
+    });
+  },
+
+  remove(key) {
+    localStorage.removeItem(this.prefix + key);
+  },
+
+  getAll() {
+    const data = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(this.prefix)) {
+        try {
+          data[key.replace(this.prefix, '')] = JSON.parse(localStorage.getItem(key));
+        } catch (e) {
+          data[key.replace(this.prefix, '')] = localStorage.getItem(key);
+        }
+      }
+    }
+    return data;
+  },
+
+  clear() {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(this.prefix)) keys.push(key);
+    }
+    keys.forEach(k => localStorage.removeItem(k));
+  },
+
+  export() {
+    return JSON.stringify(this.getAll(), null, 2);
+  },
+
+  import(jsonStr) {
+    try {
+      const data = JSON.parse(jsonStr);
+      Object.keys(data).forEach(key => {
+        this.set(key, data[key]);
+      });
+      return true;
+    } catch (e) { return false; }
+  },
+
+  backup() {
+    const backup = {
+      timestamp: new Date().toISOString(),
+      data: this.getAll()
+    };
+    const backups = this.get('backups') || [];
+    backups.unshift(backup);
+    if (backups.length > 10) backups.pop();
+    this.set('backups', backups);
+    return backup.timestamp;
+  },
+
+  restore(index = 0) {
+    const backups = this.get('backups') || [];
+    if (backups[index]) {
+      Object.keys(backups[index].data).forEach(key => {
+        this.set(key, backups[index].data[key]);
+      });
+      return true;
+    }
+    return false;
+  },
+
+  log(action, details) {
+    const logs = this.get('logs') || [];
+    logs.unshift({
+      id: Date.now(),
+      action,
+      details,
+      timestamp: new Date().toLocaleString('vi-VN')
+    });
+    if (logs.length > 1000) logs.pop();
+    this.set('logs', logs);
+
+    // Also log to Firebase
+    if (isOnline && this.logsRef) {
+      try {
+        const logDoc = doc(this.logsRef, String(Date.now()));
+        setDoc(logDoc, { action, details, timestamp: serverTimestamp() }, { merge: true });
+      } catch (e) {}
+    }
+  }
+};
+
+/* ==================== 1.1. ANTI-CHEAT SYSTEM ==================== */
+const AntiCheat = {
+  secretKey: 'vuakhoangsan_v3_secret_key_2026',
+
+  generateSignature(data) {
+    const str = JSON.stringify(data) + this.secretKey + Date.now();
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return hash.toString(16);
+  },
+
+  verifySignature(data, signature) {
+    return this.generateSignature(data) === signature;
+  },
+
+  validateMiningAction(userId, amount, rate, timestamp) {
+    const now = Date.now();
+    const timeDiff = now - timestamp;
+
+    // Max mining rate check
+    const maxRate = 0.001; // Max 0.001 per second
+    if (rate > maxRate) return { valid: false, reason: 'RATE_EXCEEDED' };
+
+    // Time sanity check
+    if (timeDiff < 0 || timeDiff > 60000) return { valid: false, reason: 'TIME_ANOMALY' };
+
+    // Amount sanity check
+    const maxAmount = rate * (timeDiff / 1000) * 1.1; // 10% tolerance
+    if (amount > maxAmount) return { valid: false, reason: 'AMOUNT_ANOMALY' };
+
+    return { valid: true };
+  },
+
+  validateWithdraw(userId, amount, balance) {
+    if (amount < MIN_WITHDRAW) return { valid: false, reason: 'MIN_NOT_MET' };
+    if (amount > MAX_WITHDRAW) return { valid: false, reason: 'MAX_EXCEEDED' };
+    if (amount > balance) return { valid: false, reason: 'INSUFFICIENT_BALANCE' };
+    if (amount <= 0) return { valid: false, reason: 'INVALID_AMOUNT' };
+    return { valid: true };
+  },
+
+  rateLimit: {},
+
+  checkRateLimit(userId, action, limitMs = 1000) {
+    const key = `${userId}_${action}`;
+    const last = this.rateLimit[key] || 0;
+    const now = Date.now();
+    if (now - last < limitMs) {
+      return { allowed: false, wait: limitMs - (now - last) };
+    }
+    this.rateLimit[key] = now;
+    return { allowed: true };
+  },
+
+  detectAnomaly(userId, action, value) {
+    const user = getCurrentUser();
+    if (!user) return { anomaly: false };
+
+    // Check for impossible balance changes
+    if (action === 'balance_change') {
+      const maxChange = 1000000; // Max 1M per action
+      if (Math.abs(value) > maxChange) {
+        return { anomaly: true, reason: 'IMPOSSIBLE_CHANGE', value };
+      }
+    }
+
+    // Check for rapid actions
+    const rapidCheck = this.checkRateLimit(userId, action, 500);
+    if (!rapidCheck.allowed) {
+      return { anomaly: true, reason: 'RAPID_ACTION', wait: rapidCheck.wait };
+    }
+
+    return { anomaly: false };
+  }
+};
+
+/* ==================== 2. TELEGRAM + LOADING ==================== */
 let tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 let tgUser;
 
@@ -6,11 +409,17 @@ if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
   tgUser = tg.initDataUnsafe.user;
   try { tg.ready(); } catch (e) {}
   try { tg.expand(); } catch (e) {}
+  // Set Telegram theme
+  if (tg.colorScheme) {
+    currentTheme = tg.colorScheme;
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    localStorage.setItem('vuakhoangsan_theme', currentTheme);
+  }
 } else {
   tgUser = { id: 5838598093, first_name: 'Tuanx3000', last_name: '', username: 'Tuanx3000', photo_url: '' };
 }
 
-const uid = String(tgUser.id || '5838598093 ');
+const uid = String(tgUser.id || '5838598093');
 const tgFirstName = tgUser.first_name || '';
 const tgLastName = tgUser.last_name || '';
 const tgUsername = tgUser.username || '';
@@ -45,23 +454,37 @@ const now = new Date();
 document.getElementById('joinDate').textContent =
   `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()}`;
 
-window.addEventListener('load', () => {
+/* ==================== 2.1. INIT WITH FIREBASE ==================== */
+window.addEventListener('load', async () => {
+  initTheme();
+
+  // Init Firebase
+  await DB.initFirebase();
+  await DB.loadFromFirebase();
+  DB.setupRealtimeListeners();
+
   initUserSystem();
   setTimeout(() => {
     document.getElementById('loadingScreen').classList.add('hidden-load');
   }, 1100);
 });
 
-/* ==================== 2. TOAST ==================== */
-function showToast(msg) {
+/* ==================== 3. TOAST (WITH TYPES) ==================== */
+function showToast(msg, type = 'default') {
   const toast = document.getElementById('toast');
   toast.textContent = msg;
-  toast.classList.add('show');
+  toast.className = 'toast ' + type;
   clearTimeout(toast._timer);
   toast._timer = setTimeout(() => toast.classList.remove('show'), 2500);
+
+  // Haptic based on type
+  if (type === 'success') hapticFeedback('success');
+  else if (type === 'error') hapticFeedback('error');
+  else if (type === 'warning') hapticFeedback('warning');
+  else hapticFeedback('light');
 }
 
-/* ==================== 3. USER SYSTEM - AUTO REGISTER ==================== */
+/* ==================== 4. USER SYSTEM - AUTO REGISTER ==================== */
 function initUserSystem() {
   let users = getUsersDB();
   let currentUser = users.find(u => u.uid === uid);
@@ -94,19 +517,25 @@ function initUserSystem() {
       insuranceExpiry: null,
       storageUpgrade: false,
       claimedDefaultGift: false,
+      lastActive: new Date().toISOString(),
+      miningHistory: [],
+      loginHistory: [new Date().toISOString()],
+      antiCheatScore: 100, // Trust score
     };
     users.push(currentUser);
     saveUsersDB(users);
 
+    DB.log('USER_REGISTER', { uid, name: displayName });
+
     showNotifyBanner({
-      title: 'Chao mung tho dao moi!',
-      body: `Xin chao ${displayName}! Ban da duoc tang 0 Quang khoi dau. Hay khoi dong may dao ngay!`,
+      title: 'Chào mừng thợ đào mới!',
+      body: `Xin chào ${displayName}! Bạn đã được tặng 0 Quặng khởi đầu. Hãy khởi động máy đào ngay!`,
       type: 'success',
     });
 
     sendBotMessage(
       ADMIN_ID,
-      `🆕 USER MOI DANG KY\n` +
+      `🆕 USER MỚI ĐĂNG KÝ\n` +
       `👤 ${displayName} (${displayHandle})\n` +
       `🆔 UID: ${uid}\n` +
       `⏰ ${currentUser.joinedAt}`
@@ -115,6 +544,10 @@ function initUserSystem() {
     currentUser.name = displayName;
     currentUser.handle = displayHandle;
     currentUser.photoUrl = tgPhotoUrl;
+    currentUser.lastActive = new Date().toISOString();
+    currentUser.loginHistory = currentUser.loginHistory || [];
+    currentUser.loginHistory.unshift(new Date().toISOString());
+    if (currentUser.loginHistory.length > 50) currentUser.loginHistory.pop();
     saveUsersDB(users);
   }
 
@@ -123,16 +556,11 @@ function initUserSystem() {
 }
 
 function getUsersDB() {
-  try {
-    const raw = localStorage.getItem('vuakhoangsan_users');
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    return [];
-  }
+  return DB.get('users') || [];
 }
 
 function saveUsersDB(users) {
-  localStorage.setItem('vuakhoangsan_users', JSON.stringify(users));
+  DB.set('users', users);
 }
 
 function getCurrentUser() {
@@ -144,7 +572,7 @@ function updateCurrentUser(updates) {
   const users = getUsersDB();
   const idx = users.findIndex(u => u.uid === uid);
   if (idx !== -1) {
-    users[idx] = { ...users[idx], ...updates };
+    users[idx] = { ...users[idx], ...updates, lastActive: new Date().toISOString() };
     saveUsersDB(users);
     loadUserState(users[idx]);
   }
@@ -164,7 +592,7 @@ function loadUserState(user) {
   userInventory = user.inventory || [];
 }
 
-/* ==================== 4. STATE ==================== */
+/* ==================== 5. STATE ==================== */
 let balance = 0;
 let miningRate = 0.000139;
 let pendingOre = 0;
@@ -219,7 +647,7 @@ function updateMeta() {
     ? (withdrawn / 1000) + 'k'
     : String(withdrawn) + 'k';
   document.getElementById('fragmentCount').innerHTML =
-    `${fragments}<span style="color:#94a3b8;font-size:14px">/15</span>`;
+    `${fragments}<span style="color:var(--text-muted);font-size:14px">/15</span>`;
   document.getElementById('ticketCount').textContent = String(tickets);
 }
 
@@ -234,71 +662,120 @@ function updateAllDisplays() {
   renderMilestones();
   updateRefStats();
   updateCheckinBtn();
+  renderRankings();
 }
 
 function updateCheckinBtn() {
   const btn = document.getElementById('checkinBtn');
   if (checkedIn) {
-    btn.textContent = 'DA LAM';
+    btn.textContent = 'ĐÃ LÀM';
     btn.disabled = true;
     btn.style.opacity = '0.5';
   } else {
-    btn.textContent = 'Lam ngay';
+    btn.textContent = 'Làm ngay';
     btn.disabled = false;
     btn.style.opacity = '1';
   }
 }
 
-/* ==================== 5. XP & LEVEL SYSTEM ==================== */
+/* ==================== 6. XP & LEVEL SYSTEM ==================== */
 function addXP(amount) {
   userXP += amount;
+  let leveledUp = false;
   while (userXP >= xpNeeded) {
     userXP -= xpNeeded;
     userLevel++;
     xpNeeded = Math.floor(xpNeeded * 1.5);
-    showToast(`🎉 Len cap ${userLevel}! XP can: ${xpNeeded}`);
+    leveledUp = true;
     miningRate += 0.00001;
   }
+
+  if (leveledUp) {
+    triggerLevelUp();
+    showToast(`🎉 Lên cấp ${userLevel}! XP cần: ${xpNeeded}`, 'success');
+  }
+
   updateCurrentUser({ xp: userXP, level: userLevel, xpNeeded: xpNeeded, miningRate: miningRate });
   updateLevelDisplay();
   updateRateDisplay();
 }
 
-/* ==================== 6. MINING ==================== */
+/* ==================== 7. MINING (WITH ANTI-CHEAT) ==================== */
 function toggleMining() {
   const btn = document.getElementById('mineBtn');
   if (!isMining) {
+    // Anti-cheat: rate limit
+    const rateCheck = AntiCheat.checkRateLimit(uid, 'mining_toggle', 500);
+    if (!rateCheck.allowed) {
+      showToast('Quá nhanh! Hãy đợi một chút.', 'warning');
+      return;
+    }
+
     isMining = true;
-    btn.textContent = '⛏ THU HOACH NGAY';
+    btn.textContent = '⛏ THU HOẠCH NGAY';
     btn.classList.add('mining-active');
+    hapticFeedback('medium');
+
     miningTimer = setInterval(() => {
       pendingOre += miningRate / 10;
       updatePendingDisplay();
+
+      // Spawn particles occasionally
+      if (Math.random() < 0.3) spawnMiningParticles();
     }, 100);
   } else {
     isMining = false;
     clearInterval(miningTimer);
     btn.classList.remove('mining-active');
+    hapticFeedback('heavy');
+
     if (pendingOre > 0) {
       const harvested = pendingOre;
+
+      // Anti-cheat validation
+      const validation = AntiCheat.validateMiningAction(uid, harvested, miningRate, Date.now() - (harvested / miningRate * 1000));
+      if (!validation.valid) {
+        console.warn('[TUANX3000] Mining validation failed:', validation.reason);
+        // Still allow but log
+        DB.log('ANTICHEAT_MINING_WARNING', { uid, reason: validation.reason, harvested, miningRate });
+      }
+
       balance += harvested;
-      showToast(`Thu hoach +${harvested.toFixed(4)} Quang`);
+      showToast(`Thu hoạch +${harvested.toFixed(4)} Quặng`, 'success');
       pendingOre = 0;
       addXP(Math.floor(harvested * 100));
+
+      // Log mining
+      const user = getCurrentUser();
+      user.miningHistory = user.miningHistory || [];
+      user.miningHistory.unshift({
+        amount: harvested,
+        timestamp: new Date().toISOString()
+      });
+      if (user.miningHistory.length > 100) user.miningHistory.pop();
+      updateCurrentUser({ miningHistory: user.miningHistory });
     }
     updatePendingDisplay();
     updateBalanceDisplay();
-    btn.textContent = '▶ KHOI DONG MAY DAO';
+    btn.textContent = '▶ KHỞI ĐỘNG MÁY ĐÀO';
     updateCurrentUser({ balance: balance });
   }
 }
 
-/* ==================== 7. DAILY MISSIONS ==================== */
+/* ==================== 8. DAILY MISSIONS ==================== */
 function doCheckin() {
   if (checkedIn) {
-    showToast('Ban da diem danh hom nay roi!');
+    showToast('Bạn đã điểm danh hôm nay rồi!', 'warning');
     return;
   }
+
+  // Anti-cheat: rate limit
+  const rateCheck = AntiCheat.checkRateLimit(uid, 'checkin', 2000);
+  if (!rateCheck.allowed) {
+    showToast('Quá nhanh! Hãy đợi một chút.', 'warning');
+    return;
+  }
+
   checkedIn = true;
   points += 1;
   balance += 10;
@@ -312,7 +789,8 @@ function doCheckin() {
   updateCheckinBtn();
   updateBalanceDisplay();
   updateMeta();
-  showToast('Diem danh thanh cong! +10 Quang +1 Diem');
+  showToast('Điểm danh thành công! +10 Quặng +1 Điểm', 'success');
+  hapticFeedback('success');
 }
 
 function watchAd() {
@@ -325,7 +803,14 @@ function watchAd() {
   }
 
   if (user.dailyAdWatched >= 10) {
-    showToast('Ban da xem het quang cao hom nay! (10/10)');
+    showToast('Bạn đã xem hết quảng cáo hôm nay! (10/10)', 'warning');
+    return;
+  }
+
+  // Anti-cheat: rate limit
+  const rateCheck = AntiCheat.checkRateLimit(uid, 'watch_ad', 3000);
+  if (!rateCheck.allowed) {
+    showToast('Quá nhanh! Hãy đợi một chút.', 'warning');
     return;
   }
 
@@ -352,34 +837,35 @@ function watchAd() {
 
   updateBalanceDisplay();
   updateMeta();
-  showToast(`Xem quang cao thanh cong! +${oreReward} Quang & +${pointReward} Diem (${user.dailyAdWatched}/10)`);
+  showToast(`Xem quảng cáo thành công! +${oreReward} Quặng & +${pointReward} Điểm (${user.dailyAdWatched}/10)`, 'success');
+  hapticFeedback('success');
 }
 
-/* ==================== 8. MACHINES ==================== */
+/* ==================== 9. MACHINES ==================== */
 const machineTemplates = [
   {
-    id: 1, name: 'May So Cap', icon: '🌱',
+    id: 1, name: 'Máy Sơ Cấp', icon: '🌱',
     iconBg: 'linear-gradient(135deg,#dcfce7,#bbf7d0)',
     rateText: '1.98/p', cycle: '3h',
     price: 100000, rateAdd: 0.000033,
     btn: 'linear-gradient(135deg,#16a34a,#15803d)', priceColor: '#16a34a',
   },
   {
-    id: 2, name: 'May Trung Cap', icon: '▶',
+    id: 2, name: 'Máy Trung Cấp', icon: '▶',
     iconBg: 'linear-gradient(135deg,#dbeafe,#bfdbfe)',
     rateText: '4.63/p', cycle: '4h',
     price: 200000, rateAdd: 0.000077,
     btn: 'linear-gradient(135deg,#2563eb,#1d4ed8)', priceColor: '#2563eb',
   },
   {
-    id: 3, name: 'May Cao Cap', icon: '🏅',
+    id: 3, name: 'Máy Cao Cấp', icon: '🏅',
     iconBg: 'linear-gradient(135deg,#f3e8ff,#e9d5ff)',
     rateText: '13.89/p', cycle: '5h',
     price: 500000, rateAdd: 0.000231,
     btn: 'linear-gradient(135deg,#9333ea,#7c3aed)', priceColor: '#9333ea',
   },
   {
-    id: 4, name: 'May Toi Cao', icon: '👑',
+    id: 4, name: 'Máy Tối Cao', icon: '👑',
     iconBg: 'linear-gradient(135deg,#fef3c7,#fde68a)',
     rateText: '34.72/p', cycle: '6h',
     price: 1000000, rateAdd: 0.000579,
@@ -399,13 +885,13 @@ function renderMachines() {
       <div class="machine-icon" style="background:${m.iconBg}">${m.icon}</div>
       <div class="machine-meta">
         <div class="machine-name">${m.name} ${ownedCount > 0 ? `<span style="color:#16a34a;font-size:11px">(x${ownedCount})</span>` : ''}</div>
-        <div class="machine-desc">Toc do: ${m.rateText} · Chu ky: ${m.cycle}<br>Bao tri: Moi 10 ngay</div>
+        <div class="machine-desc">Tốc độ: ${m.rateText} · Chu kỳ: ${m.cycle}<br>Bảo trì: Mỗi 10 ngày</div>
       </div>
       <div class="machine-side">
         <div class="machine-price" style="color:${m.priceColor}">
           ${formatInt(m.price)} <span class="coin">●</span>
         </div>
-        <button class="buy-btn" style="background:${m.btn}" onclick="buyMachine(${m.id})">MUA MAY</button>
+        <button class="buy-btn" style="background:${m.btn}" onclick="buyMachine(${m.id})">MUA MÁY</button>
       </div>
     </div>
   `;
@@ -413,10 +899,17 @@ function renderMachines() {
 }
 
 function buyMachine(id) {
+  // Anti-cheat: rate limit
+  const rateCheck = AntiCheat.checkRateLimit(uid, 'buy_machine', 1000);
+  if (!rateCheck.allowed) {
+    showToast('Quá nhanh! Hãy đợi một chút.', 'warning');
+    return;
+  }
+
   const m = machineTemplates.find((x) => x.id === id);
   if (!m) return;
   if (balance < m.price) {
-    showToast('So du khong du de mua may nay!');
+    showToast('Số dư không đủ để mua máy này!', 'error');
     return;
   }
 
@@ -444,13 +937,14 @@ function buyMachine(id) {
   updateRateDisplay();
   renderMachines();
   addXP(20);
-  showToast(`Mua thanh cong ${m.name}! Toc do tang.`);
+  showToast(`Mua thành công ${m.name}! Tốc độ tăng.`, 'success');
+  hapticFeedback('success');
 }
 
-/* ==================== 9. SPIN ==================== */
+/* ==================== 10. SPIN ==================== */
 const prizes = [
   { label: 'JACKPOT', value: 'jackpot' },
-  { label: 'Truot roi', value: 0 },
+  { label: 'Trượt rồi', value: 0 },
   { label: '100', value: 100 },
   { label: '200', value: 200 },
   { label: '500', value: 500 },
@@ -459,27 +953,45 @@ const prizes = [
 ];
 
 function exchangeTicket() {
+  // Anti-cheat: rate limit
+  const rateCheck = AntiCheat.checkRateLimit(uid, 'exchange_ticket', 1000);
+  if (!rateCheck.allowed) {
+    showToast('Quá nhanh! Hãy đợi một chút.', 'warning');
+    return;
+  }
+
   if (fragments < 15) {
-    showToast('Can du 15 manh VQMM de doi 1 ve!');
+    showToast('Cần đủ 15 mảnh VQMM để đổi 1 vé!', 'warning');
     return;
   }
   fragments -= 15;
   tickets += 1;
   updateCurrentUser({ fragments: fragments, tickets: tickets });
   updateMeta();
-  showToast('Doi thanh cong 1 Ve Quay So!');
+  showToast('Đổi thành công 1 Vé Quay Số!', 'success');
+  hapticFeedback('success');
 }
 
 function spinWheel() {
   if (spinning) return;
-  if (tickets <= 0) {
-    showToast('Ban khong co ve quay so! Hay doi manh VQMM.');
+
+  // Anti-cheat: rate limit
+  const rateCheck = AntiCheat.checkRateLimit(uid, 'spin_wheel', 5000);
+  if (!rateCheck.allowed) {
+    showToast('Quá nhanh! Hãy đợi một chút.', 'warning');
     return;
   }
+
+  if (tickets <= 0) {
+    showToast('Bạn không có vé quay số! Hãy đổi mảnh VQMM.', 'warning');
+    return;
+  }
+
   spinning = true;
   tickets -= 1;
   updateCurrentUser({ tickets: tickets });
   updateMeta();
+  hapticFeedback('medium');
 
   const idx = Math.floor(Math.random() * prizes.length);
   const extra = 360 * 5 + (360 - (idx * (360 / prizes.length)) - 360 / prizes.length / 2);
@@ -495,28 +1007,31 @@ function spinWheel() {
       updateCurrentUser({ balance: balance });
       updateBalanceDisplay();
       addXP(50);
-      showToast(`🎉 JACKPOT! Ban nhan ${formatInt(jack)} Quang!`);
+      triggerSpinWin();
+      showToast(`🎉 JACKPOT! Bạn nhận ${formatInt(jack)} Quặng!`, 'success');
     } else if (prize.value === 0) {
-      showToast('Truot roi! Chuc ban may man lan sau.');
+      showToast('Trượt rồi! Chúc bạn may mắn lần sau.', 'default');
+      hapticFeedback('error');
     } else {
       balance += prize.value;
       updateCurrentUser({ balance: balance });
       updateBalanceDisplay();
       addXP(Math.floor(prize.value / 50));
-      showToast(`Chuc mung! Ban nhan ${formatInt(prize.value)} Quang.`);
+      triggerSpinWin();
+      showToast(`Chúc mừng! Bạn nhận ${formatInt(prize.value)} Quặng.`, 'success');
     }
     spinning = false;
   }, 4600);
 }
 
-/* ==================== 10. INVITE ==================== */
+/* ==================== 11. INVITE ==================== */
 const milestones = [
-  { need: 3, reward: '1 Hop Bi An' },
-  { need: 10, reward: '3 Hop Bi An' },
-  { need: 20, reward: '8 Hop Bi An' },
-  { need: 50, reward: '20 Hop Bi An' },
-  { need: 100, reward: '30 Hop Bi An' },
-  { need: 200, reward: '70 Hop Bi An' },
+  { need: 3, reward: '1 Hộp Bí Ẩn' },
+  { need: 10, reward: '3 Hộp Bí Ẩn' },
+  { need: 20, reward: '8 Hộp Bí Ẩn' },
+  { need: 50, reward: '20 Hộp Bí Ẩn' },
+  { need: 100, reward: '30 Hộp Bí Ẩn' },
+  { need: 200, reward: '70 Hộp Bí Ẩn' },
 ];
 
 function renderMilestones() {
@@ -526,9 +1041,9 @@ function renderMilestones() {
   document.getElementById('milestones').innerHTML = milestones.map((m) => {
     const achieved = refCount >= m.need;
     return `
-    <div class="milestone-row" style="${achieved ? 'background:#f0fdf4;border-radius:8px;padding:8px 6px;' : ''}">
-      <span class="milestone-left">${achieved ? '✅ ' : ''}Moi ${m.need} Ban be</span>
-      <span class="milestone-right" style="${achieved ? 'color:#16a34a;' : ''}">${m.reward}</span>
+    <div class="milestone-row" style="${achieved ? 'background:var(--bg-secondary);border-radius:8px;padding:8px 6px;' : ''}">
+      <span class="milestone-left">${achieved ? '✅ ' : ''}Mời ${m.need} Bạn bè</span>
+      <span class="milestone-right" style="${achieved ? 'color:var(--accent-green);' : ''}">${m.reward}</span>
     </div>
   `;
   }).join('');
@@ -541,43 +1056,74 @@ function updateRefStats() {
   document.getElementById('todayRefs').textContent = '+' + refCount;
 }
 
+function renderRankings() {
+  const list = document.getElementById('rankList');
+  if (!list) return;
+
+  let users = getUsersDB();
+  users.sort((a, b) => (b.referralCount || 0) - (a.referralCount || 0));
+  const topUsers = users.slice(0, 20);
+
+  if (topUsers.length === 0) {
+    list.innerHTML = '<div class="rank-empty">Chưa có dữ liệu xếp hạng.</div>';
+    return;
+  }
+
+  list.innerHTML = topUsers.map((u, i) => {
+    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `<span style="color:var(--text-muted)">#${i+1}</span>`;
+    return `
+      <div class="milestone-row" style="padding:12px 6px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">${medal}</span>
+          <div>
+            <div style="font-weight:800;font-size:13px;color:var(--text-primary);">${u.name || 'Unknown'}</div>
+            <div style="font-size:11px;color:var(--text-muted);">${u.handle || ''}</div>
+          </div>
+        </div>
+        <span style="color:var(--accent-blue);font-weight:800;">${u.referralCount || 0} ref</span>
+      </div>
+    `;
+  }).join('');
+}
+
 function copyRefLink() {
+  hapticFeedback('light');
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(refLinkText).then(() => {
-      showToast('Da sao chep link moi ban!');
+      showToast('Đã sao chép link mời bạn!', 'success');
     }).catch(() => {
-      showToast('Khong the sao chep link.');
+      showToast('Không thể sao chép link.', 'error');
     });
   } else {
-    showToast('Link: ' + refLinkText);
+    showToast('Link: ' + refLinkText, 'default');
   }
 }
 
-/* ==================== 11. SHOP ==================== */
+/* ==================== 12. SHOP ==================== */
 const shopItems = [
   {
-    id: 1, name: 'Bao Hiem Bang', icon: '🛡',
-    desc: 'Bao ve nick khong bi tru diem khi Off 72h.',
+    id: 1, name: 'Bảo Hiểm Băng', icon: '🛡',
+    desc: 'Bảo vệ nick không bị trừ điểm khi Off 72h.',
     price: 2000, type: 'insurance',
   },
   {
-    id: 2, name: 'Thung Cai Tien', icon: '📦',
-    desc: 'Keo dai kho chua tu 3h len 8h tu dong day.',
+    id: 2, name: 'Thùng Cải Tiến', icon: '📦',
+    desc: 'Kéo dài kho chứa từ 3h lên 8h tự động đầy.',
     price: 3000, type: 'storage',
   },
   {
-    id: 3, name: 'Ve VIP Ads', icon: '▶',
-    desc: 'Nhan doi Quang & Diem khi xem Ads (30 ngay).',
+    id: 3, name: 'Vé VIP Ads', icon: '▶',
+    desc: 'Nhân đôi Quặng & Điểm khi xem Ads (30 ngày).',
     price: 5000, type: 'vip_ads', duration: 30,
   },
   {
-    id: 4, name: 'Ve S-VIP Ads', icon: '👑',
-    desc: 'Nhan NAM (x5) Quang & Diem xem Ads (30 ngay).',
+    id: 4, name: 'Vé S-VIP Ads', icon: '👑',
+    desc: 'Nhân NĂM (x5) Quặng & Điểm xem Ads (30 ngày).',
     price: 25000, featured: true, hot: true, type: 'svip_ads', duration: 30,
   },
   {
-    id: 5, name: 'Goi 10 Ve Quay So', icon: '🎟',
-    desc: 'Nhan ngay 10 Ve Vong Quay thang vao Tui do.',
+    id: 5, name: 'Gói 10 Vé Quay Số', icon: '🎟',
+    desc: 'Nhận ngay 10 Vé Vòng Quay thẳng vào Túi đồ.',
     price: 10000, wide: true, type: 'tickets', amount: 10,
   },
 ];
@@ -598,10 +1144,17 @@ function renderShop() {
 }
 
 function buyItem(id) {
+  // Anti-cheat: rate limit
+  const rateCheck = AntiCheat.checkRateLimit(uid, 'buy_item', 1000);
+  if (!rateCheck.allowed) {
+    showToast('Quá nhanh! Hãy đợi một chút.', 'warning');
+    return;
+  }
+
   const it = shopItems.find((x) => x.id === id);
   if (!it) return;
   if (balance < it.price) {
-    showToast('So du khong du de mua vat pham nay!');
+    showToast('Số dư không đủ để mua vật phẩm này!', 'error');
     return;
   }
 
@@ -643,19 +1196,27 @@ function buyItem(id) {
   updateBalanceDisplay();
   updateMeta();
   addXP(10);
-  showToast(`Mua thanh cong: ${it.name}! Da vao Tui do.`);
+  showToast(`Mua thành công: ${it.name}! Đã vào Túi đồ.`, 'success');
+  hapticFeedback('success');
 }
 
-/* ==================== 12. PROFILE / WITHDRAW ==================== */
+/* ==================== 13. PROFILE / WITHDRAW (WITH ANTI-CHEAT) ==================== */
 let MIN_WITHDRAW = 240000;
 let MAX_WITHDRAW = 15000000;
 let FEE_PERCENT = 10;
 let EXCHANGE_RATE = 1 / 30;
 
 function claimGift() {
+  // Anti-cheat: rate limit
+  const rateCheck = AntiCheat.checkRateLimit(uid, 'claim_gift', 2000);
+  if (!rateCheck.allowed) {
+    showToast('Quá nhanh! Hãy đợi một chút.', 'warning');
+    return;
+  }
+
   const code = document.getElementById('giftCode').value.trim();
   if (!code) {
-    showToast('Vui long nhap Giftcode!');
+    showToast('Vui lòng nhập Giftcode!', 'warning');
     return;
   }
 
@@ -665,11 +1226,11 @@ function claimGift() {
   const gift = adminGiftcodes.find(g => g.code.toUpperCase() === code.toUpperCase());
   if (gift) {
     if (gift.used >= gift.limit) {
-      showToast('Giftcode da het luot dung!');
+      showToast('Giftcode đã hết lượt dùng!', 'warning');
       return;
     }
     if (gift.claimedBy.includes(uid)) {
-      showToast('Ban da dung Giftcode nay roi!');
+      showToast('Bạn đã dùng Giftcode này rồi!', 'warning');
       return;
     }
     gift.used++;
@@ -680,13 +1241,14 @@ function claimGift() {
     updateBalanceDisplay();
     document.getElementById('giftCode').value = '';
     addXP(5);
-    showToast(`Nhan qua thanh cong! +${formatInt(gift.reward)} Quang`);
+    showToast(`Nhận quà thành công! +${formatInt(gift.reward)} Quặng`, 'success');
+    hapticFeedback('success');
     return;
   }
 
   if (code.toUpperCase() === 'VUA2026') {
     if (user && user.claimedDefaultGift) {
-      showToast('Ban da dung Giftcode mac dinh roi!');
+      showToast('Bạn đã dùng Giftcode mặc định rồi!', 'warning');
       return;
     }
     balance += 100;
@@ -694,9 +1256,11 @@ function claimGift() {
     updateBalanceDisplay();
     document.getElementById('giftCode').value = '';
     addXP(2);
-    showToast('Nhan qua thanh cong! +100 Quang');
+    showToast('Nhận quà thành công! +100 Quặng', 'success');
+    hapticFeedback('success');
   } else {
-    showToast('Giftcode khong hop le hoac da het han.');
+    showToast('Giftcode không hợp lệ hoặc đã hết hạn.', 'error');
+    hapticFeedback('error');
   }
 }
 
@@ -705,11 +1269,10 @@ let withdrawIdCounter = 1;
 
 function loadWithdrawRequests() {
   try {
-    const raw = localStorage.getItem('vuakhoangsan_withdrawals');
+    const raw = DB.get('withdrawals');
     if (raw) {
-      const parsed = JSON.parse(raw);
-      withdrawRequests = parsed.requests || [];
-      withdrawIdCounter = parsed.counter || 1;
+      withdrawRequests = raw.requests || [];
+      withdrawIdCounter = raw.counter || 1;
     }
   } catch (e) {
     withdrawRequests = [];
@@ -718,40 +1281,56 @@ function loadWithdrawRequests() {
 }
 
 function saveWithdrawRequests() {
-  localStorage.setItem('vuakhoangsan_withdrawals', JSON.stringify({
+  DB.set('withdrawals', {
     requests: withdrawRequests,
     counter: withdrawIdCounter,
-  }));
+  });
 }
 
 loadWithdrawRequests();
 
 function submitWithdraw() {
+  // Anti-cheat: rate limit
+  const rateCheck = AntiCheat.checkRateLimit(uid, 'submit_withdraw', 5000);
+  if (!rateCheck.allowed) {
+    showToast('Quá nhanh! Hãy đợi một chút.', 'warning');
+    return;
+  }
+
   const bankName = document.getElementById('bankName').value.trim();
   const bankOwner = document.getElementById('bankOwner').value.trim();
   const bankNumber = document.getElementById('bankNumber').value.trim();
   const amountRaw = document.getElementById('bankAmount').value.trim();
 
   if (!bankName || !bankOwner || !bankNumber || !amountRaw) {
-    showToast('Vui long dien day du thong tin!');
+    showToast('Vui lòng điền đầy đủ thông tin!', 'warning');
     return;
   }
 
   const amount = Number(amountRaw);
   if (isNaN(amount) || amount <= 0) {
-    showToast('So quang muon rut khong hop le!');
+    showToast('Số quặng muốn rút không hợp lệ!', 'error');
     return;
   }
+
+  // Anti-cheat validation
+  const validation = AntiCheat.validateWithdraw(uid, amount, balance);
+  if (!validation.valid) {
+    showToast(`Rút tiền không hợp lệ: ${validation.reason}`, 'error');
+    DB.log('ANTICHEAT_WITHDRAW_BLOCKED', { uid, amount, reason: validation.reason });
+    return;
+  }
+
   if (amount < MIN_WITHDRAW) {
-    showToast(`Toi thieu ${formatInt(MIN_WITHDRAW)} Quang!`);
+    showToast(`Tối thiểu ${formatInt(MIN_WITHDRAW)} Quặng!`, 'warning');
     return;
   }
   if (amount > MAX_WITHDRAW) {
-    showToast(`Toi da ${formatInt(MAX_WITHDRAW)} Quang!`);
+    showToast(`Tối đa ${formatInt(MAX_WITHDRAW)} Quặng!`, 'warning');
     return;
   }
   if (amount > balance) {
-    showToast('So du khong du de thuc hien lenh rut!');
+    showToast('Số dư không đủ để thực hiện lệnh rút!', 'error');
     return;
   }
 
@@ -785,18 +1364,19 @@ function submitWithdraw() {
   updateBalanceDisplay();
   updateMeta();
 
-  showToast(`Da tao lenh rut #${req.id}! Cho Admin duyet.`);
+  showToast(`Đã tạo lệnh rút #${req.id}! Chờ Admin duyệt.`, 'success');
+  hapticFeedback('success');
 
   sendBotMessage(
     ADMIN_ID,
-    `🔔 LENH RUT TIEN MOI #${req.id}\n` +
+    `🔔 LỆNH RÚT TIỀN MỚI #${req.id}\n` +
     `👤 ${displayName} (${displayHandle})\n` +
     `🆔 UID: ${uid}\n` +
     `🏦 ${bankName} - ${bankOwner}\n` +
     `💳 STK: ${bankNumber}\n` +
-    `💰 So quang: ${formatInt(amount)}\n` +
-    `📉 Phi (${FEE_PERCENT}%): ${formatInt(fee)}\n` +
-    `💵 Nhan: ${formatInt(vnd)} VND (30 Quang = 1d)\n` +
+    `💰 Số quặng: ${formatInt(amount)}\n` +
+    `📉 Phí (${FEE_PERCENT}%): ${formatInt(fee)}\n` +
+    `💵 Nhận: ${formatInt(vnd)} VND (30 Quặng = 1đ)\n` +
     `⏰ ${req.createdAt}`
   );
 
@@ -806,17 +1386,27 @@ function submitWithdraw() {
   document.getElementById('bankAmount').value = '';
 }
 
-/* ==================== 13. NAV ==================== */
+/* ==================== 14. NAV (WITH TRANSITIONS) ==================== */
 const mainTabs = ['home', 'invite', 'camp', 'shop', 'profile'];
 
 function showTab(tabId) {
+  hapticFeedback('light');
+
   mainTabs.forEach((id) => {
-    document.getElementById('tab-' + id).classList.toggle('hidden', id !== tabId);
+    const tab = document.getElementById('tab-' + id);
     const navBtn = document.getElementById('nav-' + id);
-    navBtn.classList.toggle('nav-active', id === tabId);
-    navBtn.classList.toggle('nav-inactive', id !== tabId);
+
+    if (id === tabId) {
+      tab.classList.remove('hidden');
+      navBtn.classList.add('nav-active');
+      navBtn.classList.remove('nav-inactive');
+    } else {
+      tab.classList.add('hidden');
+      navBtn.classList.remove('nav-active');
+      navBtn.classList.add('nav-inactive');
+    }
   });
-  window.scrollTo(0, 0);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 const subTabGroups = {
@@ -826,6 +1416,7 @@ const subTabGroups = {
 };
 
 function showSubTab(group, subId) {
+  hapticFeedback('light');
   subTabGroups[group].forEach((id) => {
     document.getElementById(`sub${group}-${id}`).classList.toggle('hidden', id !== subId);
     const btn = document.getElementById(`sub${group}-btn-${id}`);
@@ -835,18 +1426,19 @@ function showSubTab(group, subId) {
 }
 
 function openInventory() {
+  hapticFeedback('medium');
   const user = getCurrentUser();
   const inv = user && user.inventory ? user.inventory : [];
   const invText = inv.length > 0
     ? inv.map(i => `${i.icon} ${i.name}`).join(' · ')
-    : 'Tui do trong';
-  showToast(`🎒 ${invText}\n🎟 ${tickets} ve quay · ${fragments}/15 manh VQMM`);
+    : 'Túi đồ trống';
+  showToast(`🎒 ${invText}\n🎟 ${tickets} vé quay · ${fragments}/15 mảnh VQMM`, 'default');
 }
 
-/* ==================== 14. TELEGRAM BOT API ==================== */
+/* ==================== 15. TELEGRAM BOT API ==================== */
 const BOT_TOKEN = '8781327103:AAE63nHgMacJN4gXBVJ7-LEyshLQcgSj9zI';
 const ADMIN_ID = '5838598093';
-const GROUP_CHAT_ID = '-5434654672';
+const GROUP_CHAT_ID = ' -1003882234479';
 const GROUP_LINK = 'https://t.me/groupchatvuakhoangsan';
 const BOT_API_BASE = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
@@ -870,10 +1462,11 @@ async function sendBotMessage(chatId, text) {
   }
 }
 
-/* ==================== 15. ADMIN PANEL ==================== */
+/* ==================== 16. ADMIN PANEL ==================== */
 let adminTapCount = 0;
 let adminTapTimer = null;
 let isAdminLoggedIn = false;
+let currentEditUserId = null;
 
 function adminTap() {
   adminTapCount++;
@@ -886,6 +1479,7 @@ function adminTap() {
 }
 
 function openAdmin() {
+  hapticFeedback('medium');
   document.getElementById('adminOverlay').classList.remove('hidden');
   if (isAdminLoggedIn) {
     document.getElementById('adminLogin').classList.add('hidden');
@@ -901,6 +1495,7 @@ function openAdmin() {
 
 function closeAdmin() {
   document.getElementById('adminOverlay').classList.add('hidden');
+  closeUserEditModal();
 }
 
 function tryAdminLogin() {
@@ -910,22 +1505,25 @@ function tryAdminLogin() {
 
   if (pass === correctPass) {
     isAdminLoggedIn = true;
-    msgEl.textContent = 'Dang nhap thanh cong!';
+    msgEl.textContent = 'Đăng nhập thành công!';
     msgEl.className = 'admin-msg success';
+    hapticFeedback('success');
     setTimeout(() => {
       document.getElementById('adminLogin').classList.add('hidden');
       document.getElementById('adminDash').classList.remove('hidden');
       refreshAdminAll();
     }, 500);
   } else {
-    msgEl.textContent = 'Sai mat khau Admin!';
+    msgEl.textContent = 'Sai mật khẩu Admin!';
     msgEl.className = 'admin-msg error';
+    hapticFeedback('error');
   }
 }
 
-const admSubTabs = ['users', 'withdraw', 'notify', 'gift', 'config'];
+const admSubTabs = ['users', 'withdraw', 'notify', 'gift', 'config', 'db', 'logs'];
 
 function admSub(tabId) {
+  hapticFeedback('light');
   admSubTabs.forEach((id) => {
     document.getElementById('admTab-' + id).classList.toggle('hidden', id !== tabId);
     const btn = document.getElementById('admSub-btn-' + id);
@@ -940,9 +1538,11 @@ function refreshAdminAll() {
   renderAdminNotifications();
   renderAdminGiftcodes();
   loadConfigForm();
+  updateDBStats();
+  renderLogs();
 }
 
-/* ==================== 16. ADMIN: USERS ==================== */
+/* ==================== 17. ADMIN: USERS (100% EDITABLE) ==================== */
 function getAdminUsers() {
   return getUsersDB();
 }
@@ -952,14 +1552,26 @@ function renderAdminUsers() {
   const list = document.getElementById('admUserList');
   let users = getAdminUsers();
 
+  // Update stats
+  document.getElementById('admTotalUsers').textContent = users.length;
+  const onlineCount = users.filter(u => {
+    if (!u.lastActive) return false;
+    const last = new Date(u.lastActive);
+    return (Date.now() - last.getTime()) < 5 * 60 * 1000;
+  }).length;
+  document.getElementById('admOnlineUsers').textContent = onlineCount;
+  document.getElementById('admBannedUsers').textContent = users.filter(u => u.banned).length;
+
   if (search) {
     users = users.filter(u =>
-      u.uid.includes(search) || (u.name || '').toLowerCase().includes(search)
+      u.uid.includes(search) || 
+      (u.name || '').toLowerCase().includes(search) ||
+      (u.handle || '').toLowerCase().includes(search)
     );
   }
 
   if (users.length === 0) {
-    list.innerHTML = '<div class="adm-item-sub" style="text-align:center;padding:20px">Khong tim thay nguoi dung.</div>';
+    list.innerHTML = '<div class="adm-item-sub" style="text-align:center;padding:20px">Không tìm thấy người dùng.</div>';
     return;
   }
 
@@ -969,7 +1581,7 @@ function renderAdminUsers() {
         <div style="display:flex;align-items:center;gap:8px">
           ${u.photoUrl
             ? `<img src="${u.photoUrl}" style="width:28px;height:28px;border-radius:8px;object-fit:cover" onerror="this.style.display='none'">`
-            : `<div style="width:28px;height:28px;border-radius:8px;background:#0ea6e9;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800">${(u.name||'?').charAt(0).toUpperCase()}</div>`
+            : `<div style="width:28px;height:28px;border-radius:8px;background:var(--accent-blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800">${(u.name||'?').charAt(0).toUpperCase()}</div>`
           }
           <span class="adm-item-name">${u.name || 'Unknown'}</span>
         </div>
@@ -977,16 +1589,20 @@ function renderAdminUsers() {
       </div>
       <div class="adm-item-sub">
         🆔 UID: ${u.uid}${u.handle ? ' · ' + u.handle : ''}<br>
-        Cap: ${u.level || 0} · So du: ${formatInt(u.balance || 0)} Quang · Diem: ${u.points || 0}<br>
-        Da rut: ${formatInt(u.withdrawn || 0)} · May: ${(u.machines || []).length} · Tham gia: ${u.joinedAt || '?'}
+        Cấp: ${u.level || 0} · Số dư: ${formatInt(u.balance || 0)} Quặng · Điểm: ${u.points || 0}<br>
+        Đã rút: ${formatInt(u.withdrawn || 0)} · Máy: ${(u.machines || []).length} · Tham gia: ${u.joinedAt || '?'}
       </div>
       <div class="adm-item-actions">
-        <button class="admin-btn-sm blue" onclick="adminEditBalance('${u.uid}')">± So du</button>
-        <button class="admin-btn-sm amber" onclick="adminEditPoints('${u.uid}')">± Diem</button>
-        <button class="admin-btn-sm blue" onclick="adminEditLevel('${u.uid}')">± Cap</button>
+        <button class="admin-btn-sm blue" onclick="adminEditBalance('${u.uid}')">± Số dư</button>
+        <button class="admin-btn-sm amber" onclick="adminEditPoints('${u.uid}')">± Điểm</button>
+        <button class="admin-btn-sm blue" onclick="adminEditLevel('${u.uid}')">± Cấp</button>
+        <button class="admin-btn-sm green" onclick="adminEditXP('${u.uid}')">± XP</button>
+        <button class="admin-btn-sm amber" onclick="adminEditMachines('${u.uid}')">⚙ Máy</button>
+        <button class="admin-btn-sm blue" onclick="adminEditInventory('${u.uid}')">🎒 Túi</button>
         <button class="admin-btn-sm ${u.banned ? 'green' : 'red'}" onclick="adminToggleBan('${u.uid}')">${u.banned ? 'Unban' : 'Ban'}</button>
-        <button class="admin-btn-sm gray" onclick="adminNotifyUser('${u.uid}')">Nhan tin</button>
-        <button class="admin-btn-sm red" onclick="adminDeleteUser('${u.uid}')">Xoa TK</button>
+        <button class="admin-btn-sm gray" onclick="adminNotifyUser('${u.uid}')">💬 Nhắn</button>
+        <button class="admin-btn-sm blue" onclick="openUserEditModal('${u.uid}')">✏️ Sửa</button>
+        <button class="admin-btn-sm red" onclick="adminDeleteUser('${u.uid}')">🗑 Xóa</button>
       </div>
     </div>
   `).join('');
@@ -1000,11 +1616,11 @@ function adminFindUser(userId) {
 function adminEditBalance(userId) {
   const u = adminFindUser(userId);
   if (!u) return;
-  const input = prompt(`So du hien tai: ${formatInt(u.balance || 0)}\nNhap so Quang them (+) hoac bot (-):`);
+  const input = prompt(`Số dư hiện tại: ${formatInt(u.balance || 0)}\nNhập số Quặng thêm (+) hoặc bớt (-):`);
   if (input === null) return;
   const delta = Number(input);
   if (isNaN(delta)) {
-    showToast('Gia tri khong hop le!');
+    showToast('Giá trị không hợp lệ!', 'error');
     return;
   }
   u.balance = (u.balance || 0) + delta;
@@ -1018,18 +1634,19 @@ function adminEditBalance(userId) {
     updateBalanceDisplay();
   }
   renderAdminUsers();
-  showToast(`Da ${delta >= 0 ? 'cong' : 'tru'} ${formatInt(Math.abs(delta))} Quang cho ${u.name}`);
-  sendBotMessage(u.uid, `💰 Admin da ${delta >= 0 ? 'cong' : 'tru'} ${formatInt(Math.abs(delta))} Quang vao tai khoan cua ban.`);
+  DB.log('ADMIN_EDIT_BALANCE', { targetUid: userId, delta, newBalance: u.balance, adminUid: uid });
+  showToast(`Đã ${delta >= 0 ? 'cộng' : 'trừ'} ${formatInt(Math.abs(delta))} Quặng cho ${u.name}`, 'success');
+  sendBotMessage(u.uid, `💰 Admin đã ${delta >= 0 ? 'cộng' : 'trừ'} ${formatInt(Math.abs(delta))} Quặng vào tài khoản của bạn.`);
 }
 
 function adminEditPoints(userId) {
   const u = adminFindUser(userId);
   if (!u) return;
-  const input = prompt(`Diem hien tai: ${u.points || 0}\nNhap so Diem them (+) hoac bot (-):`);
+  const input = prompt(`Điểm hiện tại: ${u.points || 0}\nNhập số Điểm thêm (+) hoặc bớt (-):`);
   if (input === null) return;
   const delta = Number(input);
   if (isNaN(delta)) {
-    showToast('Gia tri khong hop le!');
+    showToast('Giá trị không hợp lệ!', 'error');
     return;
   }
   u.points = (u.points || 0) + delta;
@@ -1043,17 +1660,18 @@ function adminEditPoints(userId) {
     updateMeta();
   }
   renderAdminUsers();
-  showToast(`Da ${delta >= 0 ? 'cong' : 'tru'} ${Math.abs(delta)} Diem cho ${u.name}`);
+  DB.log('ADMIN_EDIT_POINTS', { targetUid: userId, delta, newPoints: u.points, adminUid: uid });
+  showToast(`Đã ${delta >= 0 ? 'cộng' : 'trừ'} ${Math.abs(delta)} Điểm cho ${u.name}`, 'success');
 }
 
 function adminEditLevel(userId) {
   const u = adminFindUser(userId);
   if (!u) return;
-  const input = prompt(`Cap hien tai: ${u.level || 0}\nNhap cap moi:`);
+  const input = prompt(`Cấp hiện tại: ${u.level || 0}\nNhập cấp mới:`);
   if (input === null) return;
   const newLevel = Number(input);
   if (isNaN(newLevel) || newLevel < 0) {
-    showToast('Gia tri khong hop le!');
+    showToast('Giá trị không hợp lệ!', 'error');
     return;
   }
   u.level = newLevel;
@@ -1067,7 +1685,150 @@ function adminEditLevel(userId) {
     updateLevelDisplay();
   }
   renderAdminUsers();
-  showToast(`Da dat cap ${newLevel} cho ${u.name}`);
+  DB.log('ADMIN_EDIT_LEVEL', { targetUid: userId, newLevel, adminUid: uid });
+  showToast(`Đã đặt cấp ${newLevel} cho ${u.name}`, 'success');
+}
+
+function adminEditXP(userId) {
+  const u = adminFindUser(userId);
+  if (!u) return;
+  const input = prompt(`XP hiện tại: ${u.xp || 0}/${u.xpNeeded || 120}\nNhập XP mới:`);
+  if (input === null) return;
+  const newXP = Number(input);
+  if (isNaN(newXP) || newXP < 0) {
+    showToast('Giá trị không hợp lệ!', 'error');
+    return;
+  }
+  u.xp = newXP;
+  const users = getUsersDB();
+  const idx = users.findIndex(x => x.uid === userId);
+  if (idx !== -1) users[idx] = u;
+  saveUsersDB(users);
+
+  if (u.uid === uid) {
+    userXP = u.xp;
+    updateLevelDisplay();
+  }
+  renderAdminUsers();
+  DB.log('ADMIN_EDIT_XP', { targetUid: userId, newXP, adminUid: uid });
+  showToast(`Đã đặt XP ${newXP} cho ${u.name}`, 'success');
+}
+
+function adminEditMachines(userId) {
+  const u = adminFindUser(userId);
+  if (!u) return;
+  const currentMachines = (u.machines || []).map((m, i) => 
+    `${i}: ${m.name} (ID:${m.templateId})`
+  ).join('\n');
+
+  const action = prompt(
+    `Máy của ${u.name}:\n${currentMachines || 'Không có máy'}\n\n` +
+    `Nhập:\n+ID để THÊM máy (VD: +1)\n-ID để XÓA máy theo index (VD: -0)\nhoặc CLEAR để xóa hết:`
+  );
+  if (action === null) return;
+
+  const users = getUsersDB();
+  const idx = users.findIndex(x => x.uid === userId);
+  if (idx === -1) return;
+
+  if (action.toUpperCase() === 'CLEAR') {
+    users[idx].machines = [];
+    saveUsersDB(users);
+    renderAdminUsers();
+    DB.log('ADMIN_CLEAR_MACHINES', { targetUid: userId, adminUid: uid });
+    showToast(`Đã xóa hết máy của ${u.name}`, 'success');
+    return;
+  }
+
+  if (action.startsWith('+')) {
+    const templateId = Number(action.slice(1));
+    const template = machineTemplates.find(t => t.id === templateId);
+    if (!template) {
+      showToast('ID máy không hợp lệ!', 'error');
+      return;
+    }
+    users[idx].machines = users[idx].machines || [];
+    users[idx].machines.push({
+      templateId: template.id,
+      name: template.name,
+      purchasedAt: new Date().toISOString(),
+      lastHarvest: new Date().toISOString(),
+      maintenanceDue: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+    saveUsersDB(users);
+    renderAdminUsers();
+    DB.log('ADMIN_ADD_MACHINE', { targetUid: userId, templateId, adminUid: uid });
+    showToast(`Đã thêm ${template.name} cho ${u.name}`, 'success');
+  } else if (action.startsWith('-')) {
+    const machineIdx = Number(action.slice(1));
+    if (isNaN(machineIdx) || !users[idx].machines || !users[idx].machines[machineIdx]) {
+      showToast('Index máy không hợp lệ!', 'error');
+      return;
+    }
+    const removed = users[idx].machines.splice(machineIdx, 1)[0];
+    saveUsersDB(users);
+    renderAdminUsers();
+    DB.log('ADMIN_REMOVE_MACHINE', { targetUid: userId, machineName: removed.name, adminUid: uid });
+    showToast(`Đã xóa ${removed.name} của ${u.name}`, 'success');
+  }
+}
+
+function adminEditInventory(userId) {
+  const u = adminFindUser(userId);
+  if (!u) return;
+  const currentInv = (u.inventory || []).map((item, i) => 
+    `${i}: ${item.icon} ${item.name}`
+  ).join('\n');
+
+  const action = prompt(
+    `Túi đồ của ${u.name}:\n${currentInv || 'Túi đồ trống'}\n\n` +
+    `Nhập:\n+ITEM_ID để THÊM (VD: +1)\n-INDEX để XÓA (VD: -0)\nhoặc CLEAR để xóa hết:`
+  );
+  if (action === null) return;
+
+  const users = getUsersDB();
+  const idx = users.findIndex(x => x.uid === userId);
+  if (idx === -1) return;
+
+  if (action.toUpperCase() === 'CLEAR') {
+    users[idx].inventory = [];
+    saveUsersDB(users);
+    renderAdminUsers();
+    DB.log('ADMIN_CLEAR_INVENTORY', { targetUid: userId, adminUid: uid });
+    showToast(`Đã xóa hết túi đồ của ${u.name}`, 'success');
+    return;
+  }
+
+  if (action.startsWith('+')) {
+    const itemId = Number(action.slice(1));
+    const item = shopItems.find(it => it.id === itemId);
+    if (!item) {
+      showToast('ID vật phẩm không hợp lệ!', 'error');
+      return;
+    }
+    users[idx].inventory = users[idx].inventory || [];
+    users[idx].inventory.push({
+      itemId: item.id,
+      name: item.name,
+      icon: item.icon,
+      purchasedAt: new Date().toISOString(),
+    });
+    saveUsersDB(users);
+    renderAdminUsers();
+    DB.log('ADMIN_ADD_ITEM', { targetUid: userId, itemName: item.name, adminUid: uid });
+    showToast(`Đã thêm ${item.name} vào túi ${u.name}`, 'success');
+  } else if (action.startsWith('-')) {
+    const itemIdx = Number(action.slice(1));
+    if (isNaN(itemIdx) || !users[idx].inventory || !users[idx].inventory[itemIdx]) {
+      showToast('Index vật phẩm không hợp lệ!', 'error');
+      return;
+    }
+    const removed = users[idx].inventory.splice(itemIdx, 1)[0];
+    saveUsersDB(users);
+    renderAdminUsers();
+    DB.log('ADMIN_REMOVE_ITEM', { targetUid: userId, itemName: removed.name, adminUid: uid });
+    showToast(`Đã xóa ${removed.name} khỏi túi ${u.name}`, 'success');
+  }
 }
 
 function adminToggleBan(userId) {
@@ -1080,33 +1841,166 @@ function adminToggleBan(userId) {
   saveUsersDB(users);
 
   renderAdminUsers();
-  showToast(`${u.name} da ${u.banned ? 'bi BAN' : 'duoc Unban'}`);
-  sendBotMessage(u.uid, `${u.banned ? '🚫 Tai khoan cua ban da bi khoa!' : '✅ Tai khoan cua ban da duoc mo khoa!'}`);
+  DB.log('ADMIN_TOGGLE_BAN', { targetUid: userId, banned: u.banned, adminUid: uid });
+  showToast(`${u.name} đã ${u.banned ? 'bị BAN' : 'được Unban'}`, u.banned ? 'warning' : 'success');
+  sendBotMessage(u.uid, `${u.banned ? '🚫 Tài khoản của bạn đã bị khóa!' : '✅ Tài khoản của bạn đã được mở khóa!'}`);
 }
 
 function adminNotifyUser(userId) {
   const u = adminFindUser(userId);
   if (!u) return;
-  const msg = prompt(`Gui thong bao den ${u.name} (UID: ${u.uid}):`);
+  const msg = prompt(`Gửi thông báo đến ${u.name} (UID: ${u.uid}):`);
   if (!msg || !msg.trim()) return;
-  sendBotMessage(u.uid, `📢 Thong bao tu Admin:\n${msg}`);
-  showToast(`Da gui thong bao den ${u.name}`);
+  sendBotMessage(u.uid, `📢 Thông báo từ Admin:\n${msg}`);
+  DB.log('ADMIN_NOTIFY_USER', { targetUid: userId, message: msg, adminUid: uid });
+  showToast(`Đã gửi thông báo đến ${u.name}`, 'success');
 }
 
 function adminDeleteUser(userId) {
   const u = adminFindUser(userId);
   if (!u) return;
-  if (!confirm(`⚠️ XOA TAI KHOAN ${u.name} (UID: ${userId})?\nHanh dong nay khong the hoan tac!`)) return;
+  if (!confirm(`⚠️ XÓA TÀI KHOẢN ${u.name} (UID: ${userId})?\nHành động này không thể hoàn tác!`)) return;
 
   let users = getUsersDB();
   users = users.filter(x => x.uid !== userId);
   saveUsersDB(users);
 
+  DB.log('ADMIN_DELETE_USER', { targetUid: userId, userName: u.name, adminUid: uid });
   renderAdminUsers();
-  showToast(`Da xoa tai khoan ${u.name}`);
+  showToast(`Đã xóa tài khoản ${u.name}`, 'success');
 }
 
-/* ==================== 17. ADMIN: WITHDRAW APPROVAL ==================== */
+/* ==================== USER EDIT MODAL (FULL JSON EDITOR) ==================== */
+function openUserEditModal(userId) {
+  const u = adminFindUser(userId);
+  if (!u) return;
+  currentEditUserId = userId;
+
+  const modal = document.getElementById('userEditModal');
+  const content = document.getElementById('userEditContent');
+
+  content.innerHTML = `
+    <div style="margin-bottom:12px;">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">UID: ${u.uid}</div>
+      <div style="font-size:14px;font-weight:800;color:var(--text-primary);">${u.name || 'Unknown'}</div>
+    </div>
+
+    <div class="adm-field">
+      <label class="admin-label">Tên hiển thị</label>
+      <input id="edit-name" class="admin-input" value="${escapeHtml(u.name || '')}">
+    </div>
+    <div class="adm-field">
+      <label class="admin-label">Username</label>
+      <input id="edit-handle" class="admin-input" value="${escapeHtml(u.handle || '')}">
+    </div>
+    <div class="adm-field">
+      <label class="admin-label">Số dư Quặng</label>
+      <input id="edit-balance" class="admin-input" type="number" value="${u.balance || 0}">
+    </div>
+    <div class="adm-field">
+      <label class="admin-label">Điểm</label>
+      <input id="edit-points" class="admin-input" type="number" value="${u.points || 0}">
+    </div>
+    <div class="adm-field">
+      <label class="admin-label">Cấp độ</label>
+      <input id="edit-level" class="admin-input" type="number" value="${u.level || 0}">
+    </div>
+    <div class="adm-field">
+      <label class="admin-label">XP</label>
+      <input id="edit-xp" class="admin-input" type="number" value="${u.xp || 0}">
+    </div>
+    <div class="adm-field">
+      <label class="admin-label">XP Cần</label>
+      <input id="edit-xpNeeded" class="admin-input" type="number" value="${u.xpNeeded || 120}">
+    </div>
+    <div class="adm-field">
+      <label class="admin-label">Mảnh VQMM</label>
+      <input id="edit-fragments" class="admin-input" type="number" value="${u.fragments || 0}">
+    </div>
+    <div class="adm-field">
+      <label class="admin-label">Vé quay</label>
+      <input id="edit-tickets" class="admin-input" type="number" value="${u.tickets || 0}">
+    </div>
+    <div class="adm-field">
+      <label class="admin-label">Đã rút</label>
+      <input id="edit-withdrawn" class="admin-input" type="number" value="${u.withdrawn || 0}">
+    </div>
+    <div class="adm-field">
+      <label class="admin-label">Số ref</label>
+      <input id="edit-referralCount" class="admin-input" type="number" value="${u.referralCount || 0}">
+    </div>
+    <div class="adm-field">
+      <label class="admin-label">Banned</label>
+      <select id="edit-banned" class="admin-select">
+        <option value="false" ${!u.banned ? 'selected' : ''}>Không</option>
+        <option value="true" ${u.banned ? 'selected' : ''}>Có</option>
+      </select>
+    </div>
+    <div class="adm-field">
+      <label class="admin-label">Raw JSON (nâng cao)</label>
+      <textarea id="edit-raw" class="admin-textarea" rows="4">${escapeHtml(JSON.stringify(u, null, 2))}</textarea>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="admin-btn" onclick="saveUserEditModal()" style="flex:1;">💾 LƯU THAY ĐỔI</button>
+      <button class="admin-btn admin-btn-danger" onclick="closeUserEditModal()" style="flex:1;">❌ HỦY</button>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+}
+
+function closeUserEditModal() {
+  document.getElementById('userEditModal').classList.add('hidden');
+  currentEditUserId = null;
+}
+
+function saveUserEditModal() {
+  if (!currentEditUserId) return;
+
+  const users = getUsersDB();
+  const idx = users.findIndex(x => x.uid === currentEditUserId);
+  if (idx === -1) return;
+
+  const rawJson = document.getElementById('edit-raw').value.trim();
+  try {
+    const parsed = JSON.parse(rawJson);
+    users[idx] = { ...users[idx], ...parsed, uid: currentEditUserId };
+  } catch (e) {
+    users[idx].name = document.getElementById('edit-name').value;
+    users[idx].handle = document.getElementById('edit-handle').value;
+    users[idx].balance = Number(document.getElementById('edit-balance').value) || 0;
+    users[idx].points = Number(document.getElementById('edit-points').value) || 0;
+    users[idx].level = Number(document.getElementById('edit-level').value) || 0;
+    users[idx].xp = Number(document.getElementById('edit-xp').value) || 0;
+    users[idx].xpNeeded = Number(document.getElementById('edit-xpNeeded').value) || 120;
+    users[idx].fragments = Number(document.getElementById('edit-fragments').value) || 0;
+    users[idx].tickets = Number(document.getElementById('edit-tickets').value) || 0;
+    users[idx].withdrawn = Number(document.getElementById('edit-withdrawn').value) || 0;
+    users[idx].referralCount = Number(document.getElementById('edit-referralCount').value) || 0;
+    users[idx].banned = document.getElementById('edit-banned').value === 'true';
+  }
+
+  saveUsersDB(users);
+
+  if (currentEditUserId === uid) {
+    loadUserState(users[idx]);
+    updateAllDisplays();
+  }
+
+  DB.log('ADMIN_EDIT_USER_MODAL', { targetUid: currentEditUserId, adminUid: uid });
+  showToast('Đã lưu thay đổi!', 'success');
+  closeUserEditModal();
+  renderAdminUsers();
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/* ==================== 18. ADMIN: WITHDRAW APPROVAL ==================== */
 function renderAdminWithdrawals() {
   const list = document.getElementById('admWithdrawList');
   loadWithdrawRequests();
@@ -1120,7 +2014,7 @@ function renderAdminWithdrawals() {
   document.getElementById('wdRejected').textContent = rejected.length;
 
   if (withdrawRequests.length === 0) {
-    list.innerHTML = '<div class="adm-item-sub" style="text-align:center;padding:20px">Chua co lenh rut nao.</div>';
+    list.innerHTML = '<div class="adm-item-sub" style="text-align:center;padding:20px">Chưa có lệnh rút nào.</div>';
     return;
   }
 
@@ -1133,21 +2027,21 @@ function renderAdminWithdrawals() {
   list.innerHTML = sorted.map(r => `
     <div class="adm-item">
       <div class="adm-item-head">
-        <span class="adm-item-name">Lenh #${r.id} · ${r.userName}</span>
-        <span class="adm-badge ${r.status}">${r.status === 'pending' ? 'CHO DUYET' : r.status === 'approved' ? 'DA DUYET' : 'TU CHOI'}</span>
+        <span class="adm-item-name">Lệnh #${r.id} · ${r.userName}</span>
+        <span class="adm-badge ${r.status}">${r.status === 'pending' ? 'CHỜ DUYỆT' : r.status === 'approved' ? 'ĐÃ DUYỆT' : 'TỪ CHỐI'}</span>
       </div>
       <div class="adm-item-sub">
         UID: ${r.uid}<br>
         🏦 ${r.bankName} · ${r.bankOwner}<br>
         💳 STK: ${r.bankNumber}<br>
-        💰 Quang: ${formatInt(r.amount)} · Phi: ${formatInt(r.fee)}<br>
-        💵 Nhan: ${formatInt(r.vnd)} VND<br>
-        ⏰ ${r.createdAt}${r.rejectedAt ? '<br>❌ Tu choi: ' + r.rejectedAt : ''}${r.rejectReason ? ' (' + r.rejectReason + ')' : ''}${r.approvedAt ? '<br>✅ Duyet: ' + r.approvedAt : ''}
+        💰 Quặng: ${formatInt(r.amount)} · Phí: ${formatInt(r.fee)}<br>
+        💵 Nhận: ${formatInt(r.vnd)} VND<br>
+        ⏰ ${r.createdAt}${r.rejectedAt ? '<br>❌ Từ chối: ' + r.rejectedAt : ''}${r.rejectReason ? ' (' + r.rejectReason + ')' : ''}${r.approvedAt ? '<br>✅ Duyệt: ' + r.approvedAt : ''}
       </div>
       ${r.status === 'pending' ? `
         <div class="adm-item-actions">
-          <button class="admin-btn-sm green" onclick="approveWithdraw(${r.id})">✅ DUYET</button>
-          <button class="admin-btn-sm red" onclick="rejectWithdraw(${r.id})">❌ TU CHOI</button>
+          <button class="admin-btn-sm green" onclick="approveWithdraw(${r.id})">✅ DUYỆT</button>
+          <button class="admin-btn-sm red" onclick="rejectWithdraw(${r.id})">❌ TỪ CHỐI</button>
         </div>
       ` : ''}
     </div>
@@ -1162,26 +2056,26 @@ function approveWithdraw(reqId) {
   saveWithdrawRequests();
 
   const groupMsg =
-    `✅ LENH RUT DA DUYET #${req.id}\n` +
+    `✅ LỆNH RÚT ĐÃ DUYỆT #${req.id}\n` +
     `👤 ${req.userName}${req.userHandle ? ' (' + req.userHandle + ')' : ''}\n` +
     `🆔 UID: ${req.uid}\n` +
     `🏦 ${req.bankName} - ${req.bankOwner}\n` +
     `💳 STK: ${req.bankNumber}\n` +
-    `💰 So quang: ${formatInt(req.amount)}\n` +
-    `📉 Phi (${FEE_PERCENT}%): ${formatInt(req.fee)}\n` +
-    `💵 So tien nhan: ${formatInt(req.vnd)} VND (30 Quang = 1d)\n` +
-    `⏰ Duyet luc: ${req.approvedAt}\n` +
+    `💰 Số quặng: ${formatInt(req.amount)}\n` +
+    `📉 Phí (${FEE_PERCENT}%): ${formatInt(req.fee)}\n` +
+    `💵 Số tiền nhận: ${formatInt(req.vnd)} VND (30 Quặng = 1đ)\n` +
+    `⏰ Duyệt lúc: ${req.approvedAt}\n` +
     `━━━━━━━━━━━━━━━\n` +
-    `👉 Tham gia nhom: ${GROUP_LINK}`;
+    `👉 Tham gia nhóm: ${GROUP_LINK}`;
 
   sendBotMessage(GROUP_CHAT_ID, groupMsg);
 
   sendBotMessage(
     req.uid,
-    `✅ Lenh rut #${req.id} da duoc DUYET!\n` +
-    `💵 So tien nhan: ${formatInt(req.vnd)} VND (30 Quang = 1d)\n` +
-    `⏰ Luc: ${req.approvedAt}\n` +
-    `👉 Tham gia nhom de nhan tin tuc: ${GROUP_LINK}`
+    `✅ Lệnh rút #${req.id} đã được DUYỆT!\n` +
+    `💵 Số tiền nhận: ${formatInt(req.vnd)} VND (30 Quặng = 1đ)\n` +
+    `⏰ Lúc: ${req.approvedAt}\n` +
+    `👉 Tham gia nhóm để nhận tin tức: ${GROUP_LINK}`
   );
 
   const u = adminFindUser(req.uid);
@@ -1201,20 +2095,22 @@ function approveWithdraw(reqId) {
   const current = Number(String(jackEl.textContent).replace(/,/g, '')) || 1331716;
   jackEl.textContent = formatInt(current + req.fee);
 
+  DB.log('ADMIN_APPROVE_WITHDRAW', { reqId, uid: req.uid, amount: req.amount, adminUid: uid });
   renderAdminWithdrawals();
   renderAdminUsers();
-  showToast(`Da duyet lenh #${req.id} va gui len nhom!`);
+  showToast(`Đã duyệt lệnh #${req.id} và gửi lên nhóm!`, 'success');
+  hapticFeedback('success');
 }
 
 function rejectWithdraw(reqId) {
   const req = withdrawRequests.find(r => r.id === reqId);
   if (!req || req.status !== 'pending') return;
-  const reason = prompt('Ly do tu choi (de trong neu khong co):');
+  const reason = prompt('Lý do từ chối (để trống nếu không có):');
   if (reason === null) return;
 
   req.status = 'rejected';
   req.rejectedAt = new Date().toLocaleString('vi-VN');
-  req.rejectReason = reason || 'Khong co ly do';
+  req.rejectReason = reason || 'Không có lý do';
   saveWithdrawRequests();
 
   const u = adminFindUser(req.uid);
@@ -1232,31 +2128,28 @@ function rejectWithdraw(reqId) {
 
   sendBotMessage(
     req.uid,
-    `❌ Lenh rut #${req.id} bi TU CHOI!\n` +
-    `Ly do: ${req.rejectReason}\n` +
-    `💰 Da hoan tra ${formatInt(req.amount)} Quang vao tai khoan.\n` +
-    `⏰ Luc: ${req.rejectedAt}`
+    `❌ Lệnh rút #${req.id} bị TỪ CHỐI!\n` +
+    `Lý do: ${req.rejectReason}\n` +
+    `💰 Đã hoàn trả ${formatInt(req.amount)} Quặng vào tài khoản.\n` +
+    `⏰ Lúc: ${req.rejectedAt}`
   );
 
+  DB.log('ADMIN_REJECT_WITHDRAW', { reqId, uid: req.uid, reason: req.rejectReason, adminUid: uid });
   renderAdminWithdrawals();
   renderAdminUsers();
-  showToast(`Da tu choi lenh #${req.id} va hoan tien!`);
+  showToast(`Đã từ chối lệnh #${req.id} và hoàn tiền!`, 'success');
+  hapticFeedback('success');
 }
 
-/* ==================== 18. ADMIN: NOTIFICATIONS ==================== */
+/* ==================== 19. ADMIN: NOTIFICATIONS ==================== */
 let adminNotifications = [];
 
 function loadAdminNotifications() {
-  try {
-    const raw = localStorage.getItem('vuakhoangsan_notifications');
-    if (raw) adminNotifications = JSON.parse(raw);
-  } catch (e) {
-    adminNotifications = [];
-  }
+  adminNotifications = DB.get('notifications') || [];
 }
 
 function saveAdminNotifications() {
-  localStorage.setItem('vuakhoangsan_notifications', JSON.stringify(adminNotifications));
+  DB.set('notifications', adminNotifications);
 }
 
 loadAdminNotifications();
@@ -1267,7 +2160,7 @@ function sendNotify() {
   const type = document.getElementById('admNotifyType').value;
 
   if (!title || !body) {
-    showToast('Vui long nhap tieu de va noi dung!');
+    showToast('Vui lòng nhập tiêu đề và nội dung!', 'warning');
     return;
   }
 
@@ -1277,6 +2170,7 @@ function sendNotify() {
     body: body,
     type: type,
     createdAt: new Date().toLocaleString('vi-VN'),
+    sentBy: uid,
   };
   adminNotifications.unshift(notif);
   saveAdminNotifications();
@@ -1297,14 +2191,16 @@ function sendNotify() {
   document.getElementById('admNotifyTitle').value = '';
   document.getElementById('admNotifyBody').value = '';
 
+  DB.log('ADMIN_SEND_NOTIFY', { title, type, recipients: users.length, adminUid: uid });
   renderAdminNotifications();
-  showToast('Da gui thong bao den tat ca nguoi dung!');
+  showToast('Đã gửi thông báo đến tất cả người dùng!', 'success');
+  hapticFeedback('success');
 }
 
 function renderAdminNotifications() {
   const list = document.getElementById('admNotifyList');
   if (adminNotifications.length === 0) {
-    list.innerHTML = '<div class="adm-item-sub" style="text-align:center;padding:20px">Chua co thong bao nao.</div>';
+    list.innerHTML = '<div class="adm-item-sub" style="text-align:center;padding:20px">Chưa có thông báo nào.</div>';
     return;
   }
   const icons = { info: 'ℹ', success: '✅', warning: '⚠', danger: '🚨' };
@@ -1315,16 +2211,10 @@ function renderAdminNotifications() {
       </div>
       <div class="adm-item-sub">
         ${escapeHtml(n.body)}<br>
-        ⏰ ${n.createdAt}
+        ⏰ ${n.createdAt}${n.sentBy ? ' · Gửi bởi: ' + n.sentBy : ''}
       </div>
     </div>
   `).join('');
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 function showNotifyBanner(notif) {
@@ -1348,20 +2238,15 @@ function closeNotifyBanner() {
   document.getElementById('notifyBanner').classList.add('hidden');
 }
 
-/* ==================== 19. ADMIN: GIFTCODE ==================== */
+/* ==================== 20. ADMIN: GIFTCODE ==================== */
 let adminGiftcodes = [];
 
 function loadAdminGiftcodes() {
-  try {
-    const raw = localStorage.getItem('vuakhoangsan_giftcodes');
-    if (raw) adminGiftcodes = JSON.parse(raw);
-  } catch (e) {
-    adminGiftcodes = [];
-  }
+  adminGiftcodes = DB.get('giftcodes') || [];
 }
 
 function saveAdminGiftcodes() {
-  localStorage.setItem('vuakhoangsan_giftcodes', JSON.stringify(adminGiftcodes));
+  DB.set('giftcodes', adminGiftcodes);
 }
 
 loadAdminGiftcodes();
@@ -1372,15 +2257,15 @@ function createGiftcode() {
   const limit = Number(document.getElementById('admGiftLimit').value);
 
   if (!code || !reward || !limit) {
-    showToast('Vui long nhap day du thong tin!');
+    showToast('Vui lòng nhập đầy đủ thông tin!', 'warning');
     return;
   }
   if (reward <= 0 || limit <= 0) {
-    showToast('Phan thuong va so luot phai > 0!');
+    showToast('Phần thưởng và số lượt phải > 0!', 'warning');
     return;
   }
   if (adminGiftcodes.find(g => g.code === code)) {
-    showToast('Giftcode da ton tai!');
+    showToast('Giftcode đã tồn tại!', 'warning');
     return;
   }
 
@@ -1391,6 +2276,7 @@ function createGiftcode() {
     used: 0,
     claimedBy: [],
     createdAt: new Date().toLocaleString('vi-VN'),
+    createdBy: uid,
   };
   adminGiftcodes.unshift(gift);
   saveAdminGiftcodes();
@@ -1399,14 +2285,16 @@ function createGiftcode() {
   document.getElementById('admGiftReward').value = '';
   document.getElementById('admGiftLimit').value = '';
 
+  DB.log('ADMIN_CREATE_GIFTCODE', { code, reward, limit, adminUid: uid });
   renderAdminGiftcodes();
-  showToast(`Da tao Giftcode: ${code}`);
+  showToast(`Đã tạo Giftcode: ${code}`, 'success');
+  hapticFeedback('success');
 }
 
 function renderAdminGiftcodes() {
   const list = document.getElementById('admGiftList');
   if (adminGiftcodes.length === 0) {
-    list.innerHTML = '<div class="adm-item-sub" style="text-align:center;padding:20px">Chua co Giftcode nao.</div>';
+    list.innerHTML = '<div class="adm-item-sub" style="text-align:center;padding:20px">Chưa có Giftcode nào.</div>';
     return;
   }
   list.innerHTML = adminGiftcodes.map(g => {
@@ -1415,17 +2303,17 @@ function renderAdminGiftcodes() {
       <div class="adm-item">
         <div class="adm-item-head">
           <span class="adm-item-name">${g.code}</span>
-          <span class="adm-badge ${exhausted ? 'used' : 'active'}">${exhausted ? 'HET' : 'HOAT DONG'}</span>
+          <span class="adm-badge ${exhausted ? 'used' : 'active'}">${exhausted ? 'HẾT' : 'HOẠT ĐỘNG'}</span>
         </div>
         <div class="adm-item-sub">
-          Phan thuong: ${formatInt(g.reward)} Quang<br>
-          Da dung: ${g.used}/${g.limit}<br>
-          ⏰ ${g.createdAt}
+          Phần thưởng: ${formatInt(g.reward)} Quặng<br>
+          Đã dùng: ${g.used}/${g.limit}<br>
+          ⏰ ${g.createdAt}${g.createdBy ? ' · Tạo bởi: ' + g.createdBy : ''}
         </div>
         <div class="adm-item-actions">
-          <button class="admin-btn-sm blue" onclick="copyGiftcode('${g.code}')">Copy ma</button>
-          <button class="admin-btn-sm gray" onclick="broadcastGiftcode('${g.code}')">Gui tat ca</button>
-          <button class="admin-btn-sm red" onclick="deleteGiftcode('${g.code}')">Xoa</button>
+          <button class="admin-btn-sm blue" onclick="copyGiftcode('${g.code}')">Copy mã</button>
+          <button class="admin-btn-sm gray" onclick="broadcastGiftcode('${g.code}')">Gửi tất cả</button>
+          <button class="admin-btn-sm red" onclick="deleteGiftcode('${g.code}')">Xóa</button>
         </div>
       </div>
     `;
@@ -1433,10 +2321,11 @@ function renderAdminGiftcodes() {
 }
 
 function copyGiftcode(code) {
+  hapticFeedback('light');
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(code).then(() => showToast(`Da copy: ${code}`));
+    navigator.clipboard.writeText(code).then(() => showToast(`Đã copy: ${code}`, 'success'));
   } else {
-    showToast(`Ma: ${code}`);
+    showToast(`Mã: ${code}`, 'default');
   }
 }
 
@@ -1446,21 +2335,24 @@ function broadcastGiftcode(code) {
   const users = getUsersDB();
   users.forEach(u => {
     if (u.uid !== uid) {
-      sendBotMessage(u.uid, `🎁 Giftcode moi: ${code}\nPhan thuong: ${formatInt(gift.reward)} Quang\nSo luot: ${gift.limit - gift.used} con lai\nVao ung dung > Ho So > Nhap Giftcode!`);
+      sendBotMessage(u.uid, `🎁 Giftcode mới: ${code}\nPhần thưởng: ${formatInt(gift.reward)} Quặng\nSố lượt: ${gift.limit - gift.used} còn lại\nVào ứng dụng > Hồ Sơ > Nhập Giftcode!`);
     }
   });
-  showToast(`Da gui Giftcode ${code} den tat ca!`);
+  DB.log('ADMIN_BROADCAST_GIFTCODE', { code, recipients: users.length, adminUid: uid });
+  showToast(`Đã gửi Giftcode ${code} đến tất cả!`, 'success');
+  hapticFeedback('success');
 }
 
 function deleteGiftcode(code) {
-  if (!confirm(`Xoa Giftcode ${code}?`)) return;
+  if (!confirm(`Xóa Giftcode ${code}?`)) return;
   adminGiftcodes = adminGiftcodes.filter(g => g.code !== code);
   saveAdminGiftcodes();
+  DB.log('ADMIN_DELETE_GIFTCODE', { code, adminUid: uid });
   renderAdminGiftcodes();
-  showToast(`Da xoa ${code}`);
+  showToast(`Đã xóa ${code}`, 'success');
 }
 
-/* ==================== 20. ADMIN: CONFIG ==================== */
+/* ==================== 21. ADMIN: CONFIG ==================== */
 function loadConfigForm() {
   document.getElementById('admCfgRate').value = miningRate;
   document.getElementById('admCfgRate2').value = EXCHANGE_RATE;
@@ -1482,14 +2374,17 @@ function saveConfig() {
   if (minW > 0) MIN_WITHDRAW = minW;
   if (maxW > 0) MAX_WITHDRAW = maxW;
 
+  DB.set('config', { miningRate, EXCHANGE_RATE, FEE_PERCENT, MIN_WITHDRAW, MAX_WITHDRAW });
+  DB.log('ADMIN_SAVE_CONFIG', { miningRate, EXCHANGE_RATE, FEE_PERCENT, MIN_WITHDRAW, MAX_WITHDRAW, adminUid: uid });
   updateRateDisplay();
-  showToast('Da luu cau hinh he thong!');
+  showToast('Đã lưu cấu hình hệ thống!', 'success');
+  hapticFeedback('success');
 }
 
 function adjustJackpot() {
   const delta = Number(document.getElementById('admCfgJackpot').value);
   if (isNaN(delta) || delta === 0) {
-    showToast('Nhap so Quang hop le (am de tru)!');
+    showToast('Nhập số Quặng hợp lệ (âm để trừ)!', 'warning');
     return;
   }
   const jackEl = document.getElementById('jackpotValue');
@@ -1497,21 +2392,490 @@ function adjustJackpot() {
   const newVal = Math.max(0, current + delta);
   jackEl.textContent = formatInt(newVal);
   document.getElementById('admCfgJackpot').value = '';
-  showToast(`Jackpot ${delta >= 0 ? '+' : ''}${formatInt(delta)} → ${formatInt(newVal)}`);
+  DB.log('ADMIN_ADJUST_JACKPOT', { delta, oldValue: current, newValue: newVal, adminUid: uid });
+  showToast(`Jackpot ${delta >= 0 ? '+' : ''}${formatInt(delta)} → ${formatInt(newVal)}`, 'success');
+  hapticFeedback('success');
 }
 
-/* ==================== 21. START BOT LINK ==================== */
+/* ==================== 22. ADMIN: DATABASE MANAGEMENT ==================== */
+function updateDBStats() {
+  const users = getUsersDB();
+  const txs = withdrawRequests.length;
+  document.getElementById('dbTotalUsers').textContent = users.length;
+  document.getElementById('dbTotalTx').textContent = txs;
+
+  const rawData = DB.getAll();
+  document.getElementById('dbRawViewer').innerHTML = `
+    <div style="background:var(--bg-secondary);border-radius:8px;padding:10px;overflow:auto;">
+      <pre style="margin:0;white-space:pre-wrap;word-break:break-all;color:var(--text-primary);">${escapeHtml(JSON.stringify(rawData, null, 2))}</pre>
+    </div>
+  `;
+}
+
+function dbExportJSON() {
+  const data = DB.export();
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `vuakhoangsan_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  DB.log('DB_EXPORT', { adminUid: uid });
+  showToast('Đã export database!', 'success');
+  hapticFeedback('success');
+}
+
+function dbImportJSON() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const success = DB.import(event.target.result);
+        if (success) {
+          DB.log('DB_IMPORT', { adminUid: uid });
+          showToast('Import database thành công!', 'success');
+          refreshAdminAll();
+          updateAllDisplays();
+          hapticFeedback('success');
+        } else {
+          showToast('Import thất bại! JSON không hợp lệ.', 'error');
+          hapticFeedback('error');
+        }
+      } catch (err) {
+        showToast('Lỗi đọc file: ' + err.message, 'error');
+        hapticFeedback('error');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function dbBackup() {
+  const timestamp = DB.backup();
+  DB.log('DB_BACKUP', { timestamp, adminUid: uid });
+  showToast(`Đã backup database! (${timestamp})`, 'success');
+  hapticFeedback('success');
+}
+
+function dbRestore() {
+  const backups = DB.get('backups') || [];
+  if (backups.length === 0) {
+    showToast('Không có backup nào!', 'warning');
+    return;
+  }
+
+  const list = backups.map((b, i) => `${i}: ${b.timestamp}`).join('\n');
+  const idx = prompt(`Chọn backup để restore:\n${list}\n\nNhập số:`);
+  if (idx === null) return;
+
+  const index = Number(idx);
+  if (isNaN(index) || index < 0 || index >= backups.length) {
+    showToast('Index không hợp lệ!', 'error');
+    return;
+  }
+
+  if (!confirm(`⚠️ RESTORE sẽ ghi đè toàn bộ database hiện tại!\nBackup: ${backups[index].timestamp}\n\nTiếp tục?`)) return;
+
+  const success = DB.restore(index);
+  if (success) {
+    DB.log('DB_RESTORE', { index, timestamp: backups[index].timestamp, adminUid: uid });
+    showToast('Restore database thành công!', 'success');
+    refreshAdminAll();
+    updateAllDisplays();
+    hapticFeedback('success');
+  } else {
+    showToast('Restore thất bại!', 'error');
+    hapticFeedback('error');
+  }
+}
+
+function dbReset() {
+  if (!confirm('⚠️⚠️⚠️ BẠN CÓ CHẮC CHẮN?\n\nHành động này sẽ XÓA TOÀN BỘ DATABASE!\nTất cả user, giao dịch, cấu hình sẽ biến mất!\n\nNhập "DELETE" để xác nhận:')) return;
+
+  const confirmText = prompt('Nhập "DELETE" để xác nhận xóa toàn bộ database:');
+  if (confirmText !== 'DELETE') {
+    showToast('Hủy thao tác!', 'default');
+    return;
+  }
+
+  DB.log('DB_RESET', { adminUid: uid });
+  DB.clear();
+  localStorage.removeItem('vuakhoangsan_users');
+  localStorage.removeItem('vuakhoangsan_withdrawals');
+  localStorage.removeItem('vuakhoangsan_notifications');
+  localStorage.removeItem('vuakhoangsan_giftcodes');
+  localStorage.removeItem('vuakhoangsan_config');
+  localStorage.removeItem('vuakhoangsan_logs');
+  localStorage.removeItem('vuakhoangsan_backups');
+
+  withdrawRequests = [];
+  withdrawIdCounter = 1;
+  adminNotifications = [];
+  adminGiftcodes = [];
+
+  showToast('🗑 Đã RESET toàn bộ database!', 'success');
+  refreshAdminAll();
+  updateAllDisplays();
+  hapticFeedback('success');
+}
+
+function dbLoadUserJSON() {
+  const uidInput = prompt('Nhập UID user cần load:');
+  if (!uidInput) return;
+
+  const u = adminFindUser(uidInput.trim());
+  if (!u) {
+    document.getElementById('dbUserEditMsg').textContent = 'Không tìm thấy user!';
+    document.getElementById('dbUserEditMsg').className = 'admin-msg error';
+    return;
+  }
+
+  document.getElementById('dbUserEdit').value = JSON.stringify(u, null, 2);
+  document.getElementById('dbUserEditMsg').textContent = `Loaded: ${u.name} (${u.uid})`;
+  document.getElementById('dbUserEditMsg').className = 'admin-msg success';
+}
+
+function dbSaveUserJSON() {
+  const raw = document.getElementById('dbUserEdit').value.trim();
+  if (!raw) {
+    document.getElementById('dbUserEditMsg').textContent = 'Không có dữ liệu!';
+    document.getElementById('dbUserEditMsg').className = 'admin-msg error';
+    return;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed.uid) {
+      document.getElementById('dbUserEditMsg').textContent = 'Thiếu trường uid!';
+      document.getElementById('dbUserEditMsg').className = 'admin-msg error';
+      return;
+    }
+
+    const users = getUsersDB();
+    const idx = users.findIndex(u => u.uid === parsed.uid);
+    if (idx === -1) {
+      users.push(parsed);
+    } else {
+      users[idx] = parsed;
+    }
+    saveUsersDB(users);
+
+    DB.log('DB_SAVE_USER_JSON', { uid: parsed.uid, adminUid: uid });
+    document.getElementById('dbUserEditMsg').textContent = `Đã lưu user ${parsed.uid}!`;
+    document.getElementById('dbUserEditMsg').className = 'admin-msg success';
+    renderAdminUsers();
+
+    if (parsed.uid === uid) {
+      loadUserState(parsed);
+      updateAllDisplays();
+    }
+  } catch (e) {
+    document.getElementById('dbUserEditMsg').textContent = 'JSON không hợp lệ: ' + e.message;
+    document.getElementById('dbUserEditMsg').className = 'admin-msg error';
+  }
+}
+
+function dbDeleteUserJSON() {
+  const raw = document.getElementById('dbUserEdit').value.trim();
+  if (!raw) return;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed.uid) return;
+
+    if (!confirm(`Xóa user ${parsed.name || parsed.uid}?`)) return;
+
+    let users = getUsersDB();
+    users = users.filter(u => u.uid !== parsed.uid);
+    saveUsersDB(users);
+
+    DB.log('DB_DELETE_USER_JSON', { uid: parsed.uid, adminUid: uid });
+    document.getElementById('dbUserEdit').value = '';
+    document.getElementById('dbUserEditMsg').textContent = `Đã xóa ${parsed.uid}`;
+    document.getElementById('dbUserEditMsg').className = 'admin-msg success';
+    renderAdminUsers();
+  } catch (e) {
+    document.getElementById('dbUserEditMsg').textContent = 'Lỗi: ' + e.message;
+    document.getElementById('dbUserEditMsg').className = 'admin-msg error';
+  }
+}
+
+function dbBulkAddOre() {
+  const amount = Number(document.getElementById('dbBulkAmount').value);
+  if (isNaN(amount) || amount === 0) {
+    showToast('Nhập số Quặng hợp lệ!', 'warning');
+    return;
+  }
+
+  const users = getUsersDB();
+  users.forEach(u => {
+    u.balance = (u.balance || 0) + amount;
+  });
+  saveUsersDB(users);
+
+  DB.log('DB_BULK_ADD_ORE', { amount, affectedUsers: users.length, adminUid: uid });
+  showToast(`Đã ${amount >= 0 ? 'cộng' : 'trừ'} ${formatInt(Math.abs(amount))} Quặng cho ${users.length} user!`, 'success');
+  renderAdminUsers();
+
+  if (amount !== 0) {
+    const current = getCurrentUser();
+    if (current) {
+      balance = current.balance + amount;
+      updateBalanceDisplay();
+    }
+  }
+  hapticFeedback('success');
+}
+
+function dbBulkAddPoints() {
+  const amount = Number(document.getElementById('dbBulkPoints').value);
+  if (isNaN(amount) || amount === 0) {
+    showToast('Nhập số Điểm hợp lệ!', 'warning');
+    return;
+  }
+
+  const users = getUsersDB();
+  users.forEach(u => {
+    u.points = (u.points || 0) + amount;
+  });
+  saveUsersDB(users);
+
+  DB.log('DB_BULK_ADD_POINTS', { amount, affectedUsers: users.length, adminUid: uid });
+  showToast(`Đã ${amount >= 0 ? 'cộng' : 'trừ'} ${Math.abs(amount)} Điểm cho ${users.length} user!`, 'success');
+  renderAdminUsers();
+  hapticFeedback('success');
+}
+
+function dbBulkBan() {
+  const cond = document.getElementById('dbBulkBanCond').value;
+  let users = getUsersDB();
+  let affected = 0;
+
+  users.forEach(u => {
+    let shouldBan = false;
+    if (cond === 'all') shouldBan = true;
+    else if (cond === 'negative') shouldBan = (u.balance || 0) < 0;
+    else if (cond === 'inactive') {
+      const lastActive = u.lastActive ? new Date(u.lastActive) : null;
+      if (lastActive) {
+        const daysInactive = (Date.now() - lastActive.getTime()) / (1000 * 60 * 60 * 24);
+        shouldBan = daysInactive > 7;
+      }
+    }
+
+    if (shouldBan) {
+      u.banned = true;
+      affected++;
+    }
+  });
+
+  saveUsersDB(users);
+  DB.log('DB_BULK_BAN', { condition: cond, affectedUsers: affected, adminUid: uid });
+  showToast(`Đã BAN ${affected} user!`, 'success');
+  renderAdminUsers();
+  hapticFeedback('success');
+}
+
+function dbBulkUnban() {
+  const cond = document.getElementById('dbBulkBanCond').value;
+  let users = getUsersDB();
+  let affected = 0;
+
+  users.forEach(u => {
+    let shouldUnban = false;
+    if (cond === 'all') shouldUnban = true;
+    else if (cond === 'negative') shouldUnban = (u.balance || 0) < 0;
+    else if (cond === 'inactive') {
+      const lastActive = u.lastActive ? new Date(u.lastActive) : null;
+      if (lastActive) {
+        const daysInactive = (Date.now() - lastActive.getTime()) / (1000 * 60 * 60 * 24);
+        shouldUnban = daysInactive > 7;
+      }
+    }
+
+    if (shouldUnban) {
+      u.banned = false;
+      affected++;
+    }
+  });
+
+  saveUsersDB(users);
+  DB.log('DB_BULK_UNBAN', { condition: cond, affectedUsers: affected, adminUid: uid });
+  showToast(`Đã UNBAN ${affected} user!`, 'success');
+  renderAdminUsers();
+  hapticFeedback('success');
+}
+
+/* ==================== 23. ADMIN: LOGS ==================== */
+function renderLogs() {
+  const list = document.getElementById('admLogsList');
+  const logs = DB.get('logs') || [];
+
+  if (logs.length === 0) {
+    list.innerHTML = '<div class="adm-item-sub" style="text-align:center;padding:20px">Chưa có log nào.</div>';
+    return;
+  }
+
+  list.innerHTML = logs.slice(0, 100).map(log => `
+    <div class="adm-item" style="padding:8px 12px;">
+      <div style="font-size:10px;color:var(--text-muted);">${log.timestamp} · ID: ${log.id}</div>
+      <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-top:2px;">${escapeHtml(log.action)}</div>
+      <div style="font-size:11px;color:var(--text-secondary);white-space:pre-wrap;">${escapeHtml(JSON.stringify(log.details, null, 2))}</div>
+    </div>
+  `).join('');
+}
+
+function logsClear() {
+  if (!confirm('Xóa tất cả logs?')) return;
+  DB.set('logs', []);
+  renderLogs();
+  showToast('Đã xóa logs!', 'success');
+  hapticFeedback('success');
+}
+
+function logsExport() {
+  const logs = DB.get('logs') || [];
+  const data = JSON.stringify(logs, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `vuakhoangsan_logs_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Đã export logs!', 'success');
+  hapticFeedback('success');
+}
+
+/* ==================== 24. START BOT LINK ==================== */
 function checkStartParam() {
   const urlParams = new URLSearchParams(window.location.search);
   const startParam = urlParams.get('start') || urlParams.get('startapp');
   if (startParam) {
     setTimeout(() => {
       showNotifyBanner({
-        title: 'Chao mung ban!',
-        body: `Ban da duoc moi tham gia Vua Dao Quang. Tham gia nhom de nhan tin tuc va ho tro: ${GROUP_LINK}`,
+        title: 'Chào mừng bạn!',
+        body: `Bạn đã được mời tham gia Vua Đào Quặng. Tham gia nhóm để nhận tin tức và hỗ trợ: ${GROUP_LINK}`,
         type: 'info',
       });
     }, 2000);
   }
 }
 checkStartParam();
+
+/* ==================== 25. LOAD SAVED CONFIG ==================== */
+(function loadSavedConfig() {
+  const saved = DB.get('config');
+  if (saved) {
+    if (saved.miningRate > 0) miningRate = saved.miningRate;
+    if (saved.EXCHANGE_RATE > 0) EXCHANGE_RATE = saved.EXCHANGE_RATE;
+    if (saved.FEE_PERCENT >= 0) FEE_PERCENT = saved.FEE_PERCENT;
+    if (saved.MIN_WITHDRAW > 0) MIN_WITHDRAW = saved.MIN_WITHDRAW;
+    if (saved.MAX_WITHDRAW > 0) MAX_WITHDRAW = saved.MAX_WITHDRAW;
+  }
+})();
+
+/* ==================== 26. AUTO-SAVE MINING STATE ==================== */
+window.addEventListener('beforeunload', () => {
+  if (isMining) {
+    toggleMining();
+  }
+  const user = getCurrentUser();
+  if (user) {
+    user.lastActive = new Date().toISOString();
+    const users = getUsersDB();
+    const idx = users.findIndex(u => u.uid === uid);
+    if (idx !== -1) {
+      users[idx] = user;
+      saveUsersDB(users);
+    }
+  }
+});
+
+/* ==================== 27. PERIODIC SYNC ==================== */
+setInterval(() => {
+  const user = getCurrentUser();
+  if (user) {
+    user.lastActive = new Date().toISOString();
+    const users = getUsersDB();
+    const idx = users.findIndex(u => u.uid === uid);
+    if (idx !== -1) {
+      users[idx] = user;
+      saveUsersDB(users);
+    }
+  }
+
+  // Sync to Firebase if online
+  if (isOnline && DB.userRef) {
+    DB.syncToFirebase('users', getUsersDB());
+  }
+}, 30000);
+
+/* ==================== 28. CONSOLE SIGNATURE ==================== */
+console.log('%c[TUANX3000] Vua Đào Quặng v3.0 — UPGRADED', 'color:#0ea6e9;font-size:14px;font-weight:800;');
+console.log('%c🔥 Firebase Real-time: ACTIVE | 🛡️ Anti-Cheat: ENABLED | 🌙 Dark Mode: READY | 📳 Haptics: ENABLED', 'color:#16a34a;font-size:11px;');
+console.log('%c⚠️ WARNING: This is a fictional movie prop. Not for real-world use.', 'color:#ef4444;font-size:10px;font-style:italic;');
+
+/* ==================== 29. EXPORT GLOBALS FOR INLINE HANDLERS ==================== */
+window.toggleTheme = toggleTheme;
+window.toggleMining = toggleMining;
+window.doCheckin = doCheckin;
+window.watchAd = watchAd;
+window.buyMachine = buyMachine;
+window.exchangeTicket = exchangeTicket;
+window.spinWheel = spinWheel;
+window.copyRefLink = copyRefLink;
+window.buyItem = buyItem;
+window.claimGift = claimGift;
+window.submitWithdraw = submitWithdraw;
+window.showTab = showTab;
+window.showSubTab = showSubTab;
+window.openInventory = openInventory;
+window.adminTap = adminTap;
+window.openAdmin = openAdmin;
+window.closeAdmin = closeAdmin;
+window.tryAdminLogin = tryAdminLogin;
+window.admSub = admSub;
+window.adminEditBalance = adminEditBalance;
+window.adminEditPoints = adminEditPoints;
+window.adminEditLevel = adminEditLevel;
+window.adminEditXP = adminEditXP;
+window.adminEditMachines = adminEditMachines;
+window.adminEditInventory = adminEditInventory;
+window.adminToggleBan = adminToggleBan;
+window.adminNotifyUser = adminNotifyUser;
+window.adminDeleteUser = adminDeleteUser;
+window.openUserEditModal = openUserEditModal;
+window.closeUserEditModal = closeUserEditModal;
+window.saveUserEditModal = saveUserEditModal;
+window.approveWithdraw = approveWithdraw;
+window.rejectWithdraw = rejectWithdraw;
+window.sendNotify = sendNotify;
+window.createGiftcode = createGiftcode;
+window.copyGiftcode = copyGiftcode;
+window.broadcastGiftcode = broadcastGiftcode;
+window.deleteGiftcode = deleteGiftcode;
+window.saveConfig = saveConfig;
+window.adjustJackpot = adjustJackpot;
+window.dbExportJSON = dbExportJSON;
+window.dbImportJSON = dbImportJSON;
+window.dbBackup = dbBackup;
+window.dbRestore = dbRestore;
+window.dbReset = dbReset;
+window.dbLoadUserJSON = dbLoadUserJSON;
+window.dbSaveUserJSON = dbSaveUserJSON;
+window.dbDeleteUserJSON = dbDeleteUserJSON;
+window.dbBulkAddOre = dbBulkAddOre;
+window.dbBulkAddPoints = dbBulkAddPoints;
+window.dbBulkBan = dbBulkBan;
+window.dbBulkUnban = dbBulkUnban;
+window.logsClear = logsClear;
+window.logsExport = logsExport;
+window.closeNotifyBanner = closeNotifyBanner;
