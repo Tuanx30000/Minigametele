@@ -6,7 +6,7 @@ import {
   doc, 
   setDoc, 
   getDoc, 
-  getDocs,        // ← THÊM: dùng trong DB.loadFromFirebase()
+  getDocs,
   updateDoc, 
   onSnapshot, 
   query, 
@@ -34,9 +34,9 @@ const auth = getAuth(app);
 // Enable offline persistence
 enableIndexedDbPersistence(db).catch((err) => {
   if (err.code == 'failed-precondition') {
-    console.warn('Firebase persistence failed: multiple tabs open');
+    console.warn('[TUANX3000] Firebase persistence failed: multiple tabs open');
   } else if (err.code == 'unimplemented') {
-    console.warn('Firebase persistence not supported by browser');
+    console.warn('[TUANX3000] Firebase persistence not supported by browser');
   }
 });
 
@@ -48,7 +48,7 @@ export {
   doc, 
   setDoc, 
   getDoc, 
-  getDocs,        // ← THÊM
+  getDocs,
   updateDoc, 
   onSnapshot, 
   query, 
@@ -57,4 +57,3 @@ export {
   limit, 
   serverTimestamp 
 };
-
