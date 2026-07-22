@@ -1,5 +1,22 @@
 /* ==================== 0. FIREBASE IMPORTS & CONFIG ==================== */
-import { db, auth, signInAnonymously, collection, doc, setDoc, getDoc, updateDoc, onSnapshot, query, where, orderBy, limit, serverTimestamp } from './firebase-config.js';
+/* ==================== 0. FIREBASE IMPORTS & CONFIG ==================== */
+import { 
+  db, 
+  auth, 
+  signInAnonymously, 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  getDocs,        // ← THÊM
+  updateDoc, 
+  onSnapshot, 
+  query, 
+  where, 
+  orderBy, 
+  limit, 
+  serverTimestamp 
+} from './firebase-config.js';
 
 /* ==================== 0.1. THEME SYSTEM ==================== */
 let currentTheme = localStorage.getItem('vuakhoangsan_theme') || 'light';

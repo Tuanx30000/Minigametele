@@ -1,6 +1,21 @@
 /* ==================== FIREBASE CONFIG ==================== */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, onSnapshot, query, where, orderBy, limit, serverTimestamp, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { 
+  getFirestore, 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  getDocs,        // ← THÊM: dùng trong DB.loadFromFirebase()
+  updateDoc, 
+  onSnapshot, 
+  query, 
+  where, 
+  orderBy, 
+  limit, 
+  serverTimestamp, 
+  enableIndexedDbPersistence 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -25,4 +40,21 @@ enableIndexedDbPersistence(db).catch((err) => {
   }
 });
 
-export { db, auth, signInAnonymously, collection, doc, setDoc, getDoc, updateDoc, onSnapshot, query, where, orderBy, limit, serverTimestamp };
+export { 
+  db, 
+  auth, 
+  signInAnonymously, 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  getDocs,        // ← THÊM
+  updateDoc, 
+  onSnapshot, 
+  query, 
+  where, 
+  orderBy, 
+  limit, 
+  serverTimestamp 
+};
+
