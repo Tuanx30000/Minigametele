@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tuanx3000 - Nạp Tiền</title>
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;600&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #050b14;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #091325 0%, #03060c 100%);
+            position: relative;
+            padding: 20px 20px 40px;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(20, 45, 90, 0.4) 0%, transparent 50%),
+                repeating-linear-gradient(0deg, transparent, transparent 49px, rgba(255,255,255,0.02) 50px);
+        }
+
+        /* HEADER */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 22px;
+            animation: fadeInDown 0.6s ease;
+        }
+
+        .back-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: rgba(0, 240, 255, 0.08);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #00f0ff;
+            font-size: 20px;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.25s;
+        }
+        .back-btn:hover { background: rgba(0, 240, 255, 0.18); }
+
+        .top-title {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            background: linear-gradient(90deg, #00f0ff, #ffffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .top-sub {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        /* SỐ DƯ HIỆN TẠI */
+        .balance-card {
+            background: linear-gradient(135deg, rgba(0,85,255,0.18) 0%, rgba(0,240,255,0.08) 100%);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            border-radius: 14px;
+            padding: 16px 18px;
+            margin-bottom: 22px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: fadeInUp 0.6s ease;
+        }
+        .balance-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+        .balance-value {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: #00f0ff;
+            text-shadow: 0 0 10px rgba(0,240,255,0.4);
+        }
+        .balance-icon {
+            width: 44px; height: 44px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #00f0ff 0%, #0055ff 100%);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 0 15px rgba(0,240,255,0.4);
+        }
+
+        /* SECTION LABEL */
+        .section-label {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: #cbd5e1;
+            text-transform: uppercase;
+            margin: 24px 0 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-label i { color: #00f0ff; font-size: 18px; }
+
+        /* CÁC MỨC NẠP */
+        .amount-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .amount-chip {
+            position: relative;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(0, 150, 255, 0.3);
+            border-radius: 12px;
+            padding: 14px 8px 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            overflow: hidden;
+        }
+
+        .amount-chip .amount-num {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 17px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .amount-chip .amount-bonus {
+            font-size: 10.5px;
+            color: #f59e0b;
+            font-weight: 600;
+            margin-top: 3px;
+            letter-spacing: 0.3px;
+        }
+
+        .amount-chip:hover {
+            border-color: rgba(0, 240, 255, 0.5);
+            background: rgba(0, 240, 255, 0.06);
+        }
+
+        .amount-chip.selected {
+            border-color: #00f0ff;
+            background: rgba(0, 240, 255, 0.12);
+            box-shadow: 0 0 18px rgba(0, 240, 255, 0.25);
+        }
+
+        .amount-chip.selected .amount-num { color: #00f0ff; text-shadow: 0 0 8px rgba(0,240,255,0.5); }
+
+        .amount-chip .badge-hot {
+            position: absolute;
+            top: -1px; right: -1px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 7px 2px 9px;
+            border-bottom-left-radius: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        /* NHẬP SỐ TIỀN TÙY CHỌN */
+        .custom-input-group {
+            position: relative;
+            margin-top: 12px;
+        }
+
+        .custom-input-group input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(0, 150, 255, 0.3);
+            border-radius: 10px;
+            padding: 14px 60px 14px 15px;
+            color: #fff;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .custom-input-group input:focus {
+            border-color: #00f0ff;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+        }
+
+        .custom-input-group input::placeholder { color: #64748b; font-weight: 400; font-size: 14px; }
+
+        .custom-input-group .unit {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #00f0ff;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .amount-hint {
+            font-size: 11.5px;
+            color: #64748b;
+            margin-top: 8px;
+            padding-left: 2px;
+        }
+
+        /* KHỐI QR */
+        .qr-card {
+            background: linear-gradient(145deg, rgba(20, 35, 60, 0.8) 0%, rgba(10, 20, 40, 0.9) 100%);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            border-radius: 16px;
+            padding: 22px 20px;
+            margin-top: 24px;
+            box-shadow: inset 0 0 20px rgba(0, 240, 255, 0.05), 0 10px 30px rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            animation: fadeInUp 0.7s ease;
+        }
+
+        .bank-badges {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+
+        .bank-badge {
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700;
+            font-size: 15px;
+            letter-spacing: 0.5px;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .bank-badge.main { color: #e2e8f0; font-size: 17px; }
+        .bank-badge i { font-size: 18px; }
+        .bank-badge .accent-blue { color: #3b82f6; }
+        .bank-badge .accent-green { color: #22c55e; }
+        .bank-badge .accent-red { color: #ef4444; }
+        .badge-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.15); }
+
+        .qr-frame {
+            background: #fff;
+            border-radius: 14px;
+            padding: 16px;
+            width: 220px;
+            height: 220px;
+            margin: 0 auto 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: 0 0 0 1px rgba(0,240,255,0.15), 0 10px 25px rgba(0,0,0,0.5);
+        }
+
+        .qr-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 4px;
+        }
+
+        .qr-frame .qr-loading {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            border-radius: 14px;
+        }
+        .qr-frame .qr-loading i {
+            font-size: 30px;
+            color: #0055ff;
+            animation: spin 0.9s linear infinite;
+        }
+
+        .qr-amount-display {
+            text-align: center;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 26px;
+            font-weight: 700;
+            color: #00f0ff;
+            text-shadow: 0 0 12px rgba(0,240,255,0.4);
+            margin-bottom: 18px;
+        }
+        .qr-amount-display span { font-size: 14px; color: #64748b; display: block; font-weight: 600; margin-bottom: 2px; letter-spacing: 1px; }
+
+        /* THÔNG TIN TÀI KHOẢN */
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 11px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .info-row:last-child { border-bottom: none; }
+
+        .info-label { font-size: 12.5px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .info-value {
+            font-size: 14.5px;
+            font-weight: 600;
+            color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .copy-btn {
+            width: 26px; height: 26px;
+            border-radius: 6px;
+            background: rgba(0,240,255,0.1);
+            border: 1px solid rgba(0,240,255,0.3);
+            color: #00f0ff;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .copy-btn:hover { background: rgba(0,240,255,0.2); }
+        .copy-btn.copied { background: rgba(34,197,94,0.2); border-color: rgba(34,197,94,0.5); color: #4ade80; }
+
+        /* NÚT XÁC NHẬN ĐÃ CHUYỂN */
+        .submit-btn {
+            width: 100%;
+            height: 50px;
+            border: none;
+            background: transparent;
+            color: white;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            position: relative;
+            cursor: pointer;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 20px;
+        }
+        .submit-btn .btn-bg {
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            border-radius: 8px;
+            transform: skewX(-15deg);
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+            transition: all 0.3s ease;
+        }
+        .submit-btn:hover .btn-bg {
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.7);
+            transform: skewX(-15deg) scale(1.02);
+        }
+        .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .notice-box {
+            display: flex;
+            gap: 10px;
+            background: rgba(0, 240, 255, 0.06);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-top: 16px;
+            font-size: 12px;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+        .notice-box i { color: #00f0ff; font-size: 18px; flex-shrink: 0; }
+        .notice-box b { color: #f59e0b; }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: rgba(10, 20, 40, 0.95);
+            border: 1px solid rgba(0, 240, 255, 0.4);
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            z-index: 999;
+            max-width: 90%;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .toast i { color: #4ade80; font-size: 18px; }
+
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        @media (max-width: 400px) {
+            .qr-frame { width: 190px; height: 190px; }
+            .amount-chip .amount-num { font-size: 15px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+
+        <!-- TOP BAR -->
+        <div class="top-bar">
+            <div class="back-btn" onclick="window.history.back()">
+                <i class='bx bx-arrow-back'></i>
+            </div>
+            <div>
+                <div class="top-title">Nạp Tiền</div>
+                <div class="top-sub">Chuyển khoản qua VietQR - Cộng tiền tự động</div>
+            </div>
+        </div>
+
+        <!-- SỐ DƯ -->
+        <div class="balance-card">
+            <div>
+                <div class="balance-label">Số dư khả dụng</div>
+                <div class="balance-value" id="current-balance">0 đ</div>
+            </div>
+            <div class="balance-icon"><i class='bx bx-wallet'></i></div>
+        </div>
+
+        <!-- CÁC MỨC NẠP -->
+        <div class="section-label"><i class='bx bx-coin-stack'></i> Chọn mức nạp</div>
+        <div class="amount-grid" id="amount-grid">
+            <!-- các chip được render bằng JS -->
+        </div>
+
+        <div class="custom-input-group">
+            <input type="text" id="custom-amount" inputmode="numeric" placeholder="Hoặc nhập số tiền khác (tối thiểu 10.000đ)">
+            <span class="unit">VNĐ</span>
+        </div>
+        <p class="amount-hint">Mức nạp càng cao, ưu đãi cộng thêm càng lớn.</p>
+
+        <!-- QR CARD -->
+        <div class="qr-card">
+
+            <div class="bank-badges">
+                <span class="bank-badge main"><i class='bx bxs-bank accent-blue'></i>VietinBank</span>
+                <div class="badge-divider"></div>
+                <span class="bank-badge"><span class="accent-green">napas</span>&nbsp;247</span>
+                <div class="badge-divider"></div>
+                <span class="bank-badge"><i class='bx bxs-check-shield accent-red'></i>VietQR</span>
+            </div>
+
+            <div class="qr-amount-display">
+                <span>SỐ TIỀN CẦN CHUYỂN</span>
+                <span id="qr-amount-text" style="font-size:26px; color:#00f0ff;">-- đ</span>
+            </div>
+
+            <div class="qr-frame" id="qr-frame">
+                <div class="qr-loading" id="qr-placeholder">
+                    <i class='bx bx-qr'></i>
+                </div>
+                <img id="qr-image" src="" alt="Mã QR VietinBank" style="display:none;">
+            </div>
+
+            <div class="info-row">
+                <span class="info-label">Chủ tài khoản</span>
+                <span class="info-value">LO VAN SY</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Số tài khoản</span>
+                <span class="info-value">
+                    104886445215
+                    <div class="copy-btn" onclick="copyText('104886445215', this)"><i class='bx bx-copy'></i></div>
+                </span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Ngân hàng</span>
+                <span class="info-value" style="text-align:right; font-size:13px;">VietinBank CN ĐIỆN BIÊN<br>PGD BẢN PHÚ</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Nội dung CK</span>
+                <span class="info-value">
+                    <span id="transfer-code">--</span>
+                    <div class="copy-btn" id="copy-code-btn" onclick="copyText(document.getElementById('transfer-code').textContent, this)"><i class='bx bx-copy'></i></div>
+                </span>
+            </div>
+
+            <div class="notice-box">
+                <i class='bx bx-info-circle'></i>
+                <span>Vui lòng nhập <b>đúng nội dung chuyển khoản</b> ở trên để hệ thống cộng tiền tự động. Sai nội dung có thể khiến giao dịch bị chậm xử lý.</span>
+            </div>
+
+            <button type="button" class="submit-btn" id="confirm-btn" onclick="confirmTransfer()" disabled>
+                <div class="btn-bg"></div>
+                <span>TÔI ĐÃ CHUYỂN KHOẢN</span>
+                <i class='bx bx-check-circle' style="font-size:20px;"></i>
+            </button>
+
+        </div>
+
+        <p style="text-align:center; margin-top:22px; font-size:11px; color:#475569;">
+            &copy; 2026 Tuanx3000 Tool. Giao dịch được bảo mật qua VietQR.
+        </p>
+
+    </div>
+
+    <div class="toast" id="toast">
+        <i class='bx bx-check-circle'></i>
+        <span id="toast-text">Đã sao chép</span>
+    </div>
+
+    <script>
+const API_BASE = 'api/';
+// Check auth
+fetch(API_BASE + 'auth.php?action=check')
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) {
+            window.location.href = 'index.html';
+            return;
+        }
+        document.getElementById('current-balance').textContent = Number(data.balance).toLocaleString('vi-VN') + ' đ';
+    })
+    .catch(() => {
+        window.location.href = 'index.html';
+    });
+
+        // ==== CẤU HÌNH TÀI KHOẢN NHẬN TIỀN ====
+        const BANK_ID = 'ICB';               // Mã ngân hàng VietinBank trên hệ thống VietQR
+        const ACCOUNT_NO = '104886445215';
+        const ACCOUNT_NAME = 'LO VAN SY';
+
+        // ==== CÁC MỨC NẠP (chỉnh sửa tự do) ====
+        const AMOUNT_LEVELS = [
+            { value: 20000,   label: '20.000',    bonus: '' },
+            { value: 50000,   label: '50.000',    bonus: '+2%' },
+            { value: 100000,  label: '100.000',   bonus: '+5%' },
+            { value: 200000,  label: '200.000',   bonus: '+7%' },
+            { value: 500000,  label: '500.000',   bonus: '+10%', hot: true },
+            { value: 1000000, label: '1.000.000', bonus: '+15%', hot: true },
+        ];
+
+        let selectedAmount = null;
+        let qrDebounce = null;
+
+        // ==== SINH MÃ NỘI DUNG CHUYỂN KHOẢN DUY NHẤT ====
+        function generateTransferCode() {
+            const rand = Math.random().toString(36).slice(2, 7).toUpperCase();
+            return 'NAP ' + rand;
+        }
+        let transferCode = generateTransferCode();
+
+        // ==== RENDER CÁC CHIP MỨC NẠP ====
+        function renderAmountGrid() {
+            const grid = document.getElementById('amount-grid');
+            grid.innerHTML = '';
+            AMOUNT_LEVELS.forEach((level) => {
+                const chip = document.createElement('div');
+                chip.className = 'amount-chip';
+                chip.dataset.value = level.value;
+                chip.innerHTML = `
+                    ${level.hot ? '<div class="badge-hot">HOT</div>' : ''}
+                    <div class="amount-num">${level.label}</div>
+                    ${level.bonus ? `<div class="amount-bonus">${level.bonus}</div>` : '<div class="amount-bonus">&nbsp;</div>'}
+                `;
+                chip.onclick = () => selectAmount(level.value, chip);
+                grid.appendChild(chip);
+            });
+        }
+
+        // ==== CHỌN MỨC NẠP ====
+        function selectAmount(value, chipEl) {
+            document.querySelectorAll('.amount-chip').forEach(c => c.classList.remove('selected'));
+            if (chipEl) chipEl.classList.add('selected');
+            document.getElementById('custom-amount').value = '';
+            setAmount(value);
+        }
+
+        // ==== ĐẶT SỐ TIỀN & CẬP NHẬT QR ====
+        function setAmount(value) {
+            selectedAmount = value;
+            document.getElementById('qr-amount-text').textContent = formatVND(value) + ' đ';
+            document.getElementById('confirm-btn').disabled = false;
+            updateQrImage();
+        }
+
+        function formatVND(num) {
+            return num.toLocaleString('vi-VN');
+        }
+
+        // ==== CẬP NHẬT ẢNH QR (dùng dịch vụ VietQR công khai img.vietqr.io) ====
+        function updateQrImage() {
+            if (!selectedAmount || selectedAmount < 10000) return;
+
+            document.getElementById('transfer-code').textContent = transferCode;
+
+            const placeholder = document.getElementById('qr-placeholder');
+            const img = document.getElementById('qr-image');
+
+            placeholder.style.display = 'flex';
+            img.style.display = 'none';
+
+            const url = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-compact2.png`
+                + `?amount=${selectedAmount}`
+                + `&addInfo=${encodeURIComponent(transferCode)}`
+                + `&accountName=${encodeURIComponent(ACCOUNT_NAME)}`;
+
+            img.onload = () => {
+                placeholder.style.display = 'none';
+                img.style.display = 'block';
+            };
+            img.onerror = () => {
+                placeholder.innerHTML = '<i class="bx bx-error" style="color:#ef4444; font-size:26px;"></i>';
+            };
+            img.src = url;
+        }
+
+        // ==== NHẬP SỐ TIỀN TÙY CHỈNH ====
+        const customInput = document.getElementById('custom-amount');
+        customInput.addEventListener('input', () => {
+            document.querySelectorAll('.amount-chip').forEach(c => c.classList.remove('selected'));
+
+            let raw = customInput.value.replace(/\D/g, '');
+            customInput.value = raw ? Number(raw).toLocaleString('vi-VN') : '';
+
+            clearTimeout(qrDebounce);
+            qrDebounce = setTimeout(() => {
+                const num = Number(raw);
+                if (num >= 10000) {
+                    setAmount(num);
+                } else {
+                    document.getElementById('confirm-btn').disabled = true;
+                    document.getElementById('qr-amount-text').textContent = '-- đ';
+                }
+            }, 400);
+        });
+
+        // ==== SAO CHÉP VĂN BẢN ====
+        function copyText(text, btnEl) {
+            navigator.clipboard.writeText(text).then(() => {
+                btnEl.classList.add('copied');
+                btnEl.innerHTML = '<i class="bx bx-check"></i>';
+                showToast('Đã sao chép: ' + text);
+                setTimeout(() => {
+                    btnEl.classList.remove('copied');
+                    btnEl.innerHTML = '<i class="bx bx-copy"></i>';
+                }, 1500);
+            }).catch(() => {
+                showToast('Không thể sao chép, vui lòng thử lại.');
+            });
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-text').textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        // ==== XÁC NHẬN ĐÃ CHUYỂN KHOẢN ====
+function confirmTransfer() {
+    const btn = document.getElementById('confirm-btn');
+    if (!selectedAmount || selectedAmount < 10000) {
+        showToast('Vui lòng chọn số tiền nạp');
+        return;
+    }
+
+    btn.disabled = true;
+    const original = btn.innerHTML;
+    btn.innerHTML = '<div class="btn-bg"></div><i class="bx bx-loader-alt" style="font-size:18px; animation:spin 0.8s linear infinite;"></i><span>ĐANG GỬI YÊU CẦU...</span>';
+
+    const fd = new FormData();
+    fd.append('action', 'create');
+    fd.append('amount', selectedAmount);
+    fd.append('method', 'VietinBank - VietQR');
+    fd.append('tx_id', transferCode);
+
+    fetch('api/topup.php', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            btn.innerHTML = original;
+            btn.disabled = false;
+            if (data.success) {
+                showToast('Đã gửi yêu cầu nạp ' + formatVND(selectedAmount) + 'đ. Chờ admin duyệt.');
+                // Generate new code for next time
+                transferCode = generateTransferCode();
+                document.getElementById('transfer-code').textContent = transferCode;
+            } else {
+                showToast(data.message || 'Gửi yêu cầu thất bại');
+            }
+        })
+        .catch(() => {
+            btn.innerHTML = original;
+            btn.disabled = false;
+            showToast('Lỗi kết nối server');
+        });
+}
+</body>
+</html>

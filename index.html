@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tuanx3000 - Đăng Nhập & Đăng Ký</title>
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;600&display=swap');
+
+        /* RESET CƠ BẢN */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #050b14;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* CONTAINER TỔNG */
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #091325 0%, #03060c 100%);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 20px;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(20, 45, 90, 0.4) 0%, transparent 50%),
+                repeating-linear-gradient(0deg, transparent, transparent 49px, rgba(255,255,255,0.02) 50px);
+        }
+
+        /* KHU VỰC LOGO & TIÊU ĐỀ */
+        .brand-header {
+            text-align: center;
+            margin-bottom: 30px;
+            animation: fadeInDown 0.8s ease;
+        }
+
+        .brand-icon {
+            width: 75px;
+            height: 75px;
+            background: linear-gradient(135deg, #00f0ff 0%, #0055ff 100%);
+            border-radius: 20px;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 40px;
+            color: #fff;
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.4);
+            margin-bottom: 15px;
+            transform: rotate(10deg);
+            transition: transform 0.3s ease;
+        }
+
+        .brand-icon:hover {
+            transform: rotate(0deg) scale(1.05);
+        }
+
+        .brand-icon i {
+            transform: rotate(-10deg);
+        }
+
+        .brand-icon:hover i {
+            transform: rotate(0deg);
+        }
+
+        .brand-title {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            background: linear-gradient(90deg, #00f0ff, #ffffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+
+        .brand-subtitle {
+            font-size: 13px;
+            color: #94a3b8;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* THẺ AUTH */
+        .auth-card {
+            background: linear-gradient(145deg, rgba(20, 35, 60, 0.8) 0%, rgba(10, 20, 40, 0.9) 100%);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            border-radius: 16px;
+            padding: 25px 20px;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0, 240, 255, 0.05), 0 10px 30px rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            animation: fadeInUp 0.8s ease;
+        }
+
+        /* TABS ĐIỀU HƯỚNG */
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 25px;
+            border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            color: #64748b;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            padding: 12px 0;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s;
+            letter-spacing: 1px;
+        }
+
+        .tab-btn.active {
+            color: #00f0ff;
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+        }
+
+        .tab-btn::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 2px;
+            background: #00f0ff;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px #00f0ff;
+        }
+
+        .tab-btn.active::after {
+            width: 100%;
+        }
+
+        /* FORMS */
+        .form-container {
+            display: none;
+        }
+
+        .form-container.active {
+            display: block;
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        /* Ô NHẬP LIỆU */
+        .input-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .input-group i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #00f0ff;
+            font-size: 20px;
+            transition: color 0.3s;
+            pointer-events: none;
+        }
+
+        .input-group .toggle-pass {
+            left: auto;
+            right: 15px;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+
+        .input-group input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(0, 150, 255, 0.3);
+            border-radius: 10px;
+            padding: 14px 45px 14px 45px;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .input-group input::placeholder {
+            color: #64748b;
+        }
+
+        .input-group input:focus {
+            border-color: #00f0ff;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+            background: rgba(0, 0, 0, 0.6);
+        }
+
+        .input-group input:focus ~ i:not(.toggle-pass) {
+            color: #fff;
+            text-shadow: 0 0 8px #00f0ff;
+        }
+
+        .input-hint {
+            font-size: 11px;
+            color: #f87171;
+            margin-top: -14px;
+            margin-bottom: 16px;
+            padding-left: 4px;
+            display: none;
+        }
+
+        .input-hint.show {
+            display: block;
+        }
+
+        /* CÁC TÙY CHỌN */
+        .auth-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            font-size: 13px;
+            color: #94a3b8;
+        }
+
+        .auth-options label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+
+        .auth-options input[type="checkbox"] {
+            accent-color: #00f0ff;
+            width: 15px;
+            height: 15px;
+            cursor: pointer;
+        }
+
+        .auth-options a {
+            color: #f59e0b;
+            text-decoration: none;
+            transition: color 0.3s;
+            font-weight: 600;
+        }
+
+        .auth-options a:hover {
+            text-decoration: underline;
+            color: #f97316;
+            text-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+        }
+
+        /* NÚT XÁC NHẬN */
+        .submit-btn {
+            width: 100%;
+            height: 50px;
+            border: none;
+            background: transparent;
+            color: white;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            position: relative;
+            cursor: pointer;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .submit-btn .btn-bg {
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            border-radius: 8px;
+            transform: skewX(-15deg);
+            background: linear-gradient(135deg, #00f0ff 0%, #0055ff 100%);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .submit-btn:hover .btn-bg {
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.7);
+            transform: skewX(-15deg) scale(1.02);
+        }
+
+        .submit-btn.btn-orange .btn-bg {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+        }
+
+        .submit-btn.btn-orange:hover .btn-bg {
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.7);
+        }
+
+        .submit-btn i.bx-loader-alt {
+            animation: spin 0.8s linear infinite;
+        }
+
+        /* THÔNG BÁO LỖI/TRẠNG THÁI */
+        .status-msg {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #fca5a5;
+            font-size: 13px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-bottom: 18px;
+        }
+
+        .status-msg.show {
+            display: flex;
+        }
+
+        .status-msg.success {
+            background: rgba(34, 197, 94, 0.1);
+            border-color: rgba(34, 197, 94, 0.4);
+            color: #86efac;
+        }
+
+        /* FOOTER */
+        .auth-footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 12px;
+            color: #475569;
+        }
+
+        /* ANIMATIONS */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 400px) {
+            .auth-card { padding: 20px 15px; }
+            .brand-title { font-size: 24px; }
+            .input-group input { font-size: 13px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+
+        <!-- HEADER LOGO -->
+        <div class="brand-header">
+            <div class="brand-icon">
+                <i class='bx bx-cube-alt'></i>
+            </div>
+            <h1 class="brand-title">TUANX3000 TOOL</h1>
+            <p class="brand-subtitle">Hệ Thống Phân Tích Dữ Liệu</p>
+        </div>
+
+        <!-- AUTH CARD -->
+        <div class="auth-card">
+
+            <!-- TABS ĐIỀU HƯỚNG -->
+            <div class="auth-tabs">
+                <button type="button" class="tab-btn active" id="tab-login" onclick="switchTab('login')">ĐĂNG NHẬP</button>
+                <button type="button" class="tab-btn" id="tab-register" onclick="switchTab('register')">ĐĂNG KÝ</button>
+            </div>
+
+            <!-- 1. FORM ĐĂNG NHẬP -->
+            <form id="login-form" class="form-container active" onsubmit="return handleLogin(event)">
+
+                <div class="status-msg" id="login-status">
+                    <i class='bx bx-error-circle'></i>
+                    <span id="login-status-text"></span>
+                </div>
+
+                <div class="input-group">
+                    <input type="text" id="login-username" placeholder="Tên đăng nhập" required>
+                    <i class='bx bx-user'></i>
+                </div>
+
+                <div class="input-group">
+                    <input type="password" id="login-password" placeholder="Mật khẩu" required>
+                    <i class='bx bx-lock-alt'></i>
+                    <i class='bx bx-show toggle-pass' onclick="togglePassword('login-password', this)"></i>
+                </div>
+
+                <div class="auth-options">
+                    <label>
+                        <input type="checkbox" id="login-remember"> Nhớ mật khẩu
+                    </label>
+                    <a href="#">TUANX3000</a>
+                </div>
+
+                <button type="submit" class="submit-btn" id="login-submit-btn">
+                    <div class="btn-bg"></div>
+                    <span>VÀO HỆ THỐNG</span>
+                    <i class='bx bx-right-arrow-alt' style="font-size: 22px;"></i>
+                </button>
+
+            </form>
+
+            <!-- 2. FORM ĐĂNG KÝ -->
+            <form id="register-form" class="form-container" onsubmit="return handleRegister(event)">
+
+                <div class="status-msg" id="register-status">
+                    <i class='bx bx-error-circle'></i>
+                    <span id="register-status-text"></span>
+                </div>
+
+                <div class="input-group">
+                    <input type="text" id="reg-username" placeholder="Tên đăng nhập (6-12 ký tự)" required minlength="6" maxlength="12">
+                    <i class='bx bx-user'></i>
+                </div>
+
+                <div class="input-group">
+                    <input type="email" id="reg-email" placeholder="Email hỗ trợ (để lấy lại tài khoản)">
+                    <i class='bx bx-envelope'></i>
+                </div>
+
+                <div class="input-group">
+                    <input type="password" id="reg-password" placeholder="Mật khẩu (tối thiểu 8 ký tự)" required minlength="8">
+                    <i class='bx bx-lock-alt'></i>
+                    <i class='bx bx-show toggle-pass' onclick="togglePassword('reg-password', this)"></i>
+                </div>
+
+                <div class="input-group">
+                    <input type="password" id="reg-password-confirm" placeholder="Xác nhận mật khẩu" required minlength="8">
+                    <i class='bx bx-lock-alt'></i>
+                    <i class='bx bx-show toggle-pass' onclick="togglePassword('reg-password-confirm', this)"></i>
+                </div>
+                <p class="input-hint" id="reg-mismatch-hint">Mật khẩu xác nhận không khớp.</p>
+
+                <button type="submit" class="submit-btn btn-orange" id="register-submit-btn">
+                    <div class="btn-bg"></div>
+                    <span>TẠO TÀI KHOẢN</span>
+                    <i class='bx bx-user-plus' style="font-size: 20px;"></i>
+                </button>
+
+            </form>
+
+        </div>
+
+        <p class="auth-footer">&copy; 2026 Tuanx3000 Tool. Bảo lưu mọi quyền.</p>
+
+    </div>
+
+    <script>
+        const API_BASE = 'api/';
+
+        // ==== CHUYỂN TAB ĐĂNG NHẬP / ĐĂNG KÝ ====
+        function switchTab(tab) {
+            const isLogin = tab === 'login';
+
+            document.getElementById('tab-login').classList.toggle('active', isLogin);
+            document.getElementById('tab-register').classList.toggle('active', !isLogin);
+
+            document.getElementById('login-form').classList.toggle('active', isLogin);
+            document.getElementById('register-form').classList.toggle('active', !isLogin);
+
+            hideStatus('login-status');
+            hideStatus('register-status');
+        }
+
+        // ==== HIỆN / ẨN MẬT KHẨU ====
+        function togglePassword(inputId, iconEl) {
+            const input = document.getElementById(inputId);
+            const showing = input.type === 'text';
+            input.type = showing ? 'password' : 'text';
+            iconEl.classList.toggle('bx-show', showing);
+            iconEl.classList.toggle('bx-hide', !showing);
+        }
+
+        // ==== HIỂN THỊ / ẨN THÔNG BÁO ====
+        function showStatus(boxId, textId, message, isSuccess) {
+            const box = document.getElementById(boxId);
+            const text = document.getElementById(textId);
+            text.textContent = message;
+            box.classList.toggle('success', !!isSuccess);
+            box.classList.add('show');
+            const icon = box.querySelector('i');
+            icon.className = isSuccess ? 'bx bx-check-circle' : 'bx bx-error-circle';
+        }
+
+        function hideStatus(boxId) {
+            document.getElementById(boxId).classList.remove('show');
+        }
+
+        // ==== XỬ LÝ ĐĂNG NHẬP (API THẬT) ====
+        function handleLogin(event) {
+            event.preventDefault();
+
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+            const remember = document.getElementById('login-remember').checked;
+            const btn = document.getElementById('login-submit-btn');
+
+            hideStatus('login-status');
+
+            if (!username || !password) {
+                showStatus('login-status', 'login-status-text', 'Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.');
+                return false;
+            }
+
+            const originalContent = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<div class="btn-bg"></div><i class="bx bx-loader-alt" style="font-size:20px;"></i><span>ĐANG XÁC THỰC...</span>';
+
+            const fd = new FormData();
+            fd.append('action', 'login');
+            fd.append('username', username);
+            fd.append('password', password);
+            fd.append('remember', remember ? '1' : '');
+
+            fetch(API_BASE + 'auth.php', { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        showStatus('login-status', 'login-status-text', 'Đăng nhập thành công! Đang chuyển hướng...', true);
+                        if (remember) {
+                            try { localStorage.setItem('tuanx3000_username', username); } catch(e) {}
+                        }
+                        setTimeout(() => {
+                            window.location.href = 'home.html';
+                        }, 700);
+                    } else {
+                        showStatus('login-status', 'login-status-text', data.message || 'Đăng nhập thất bại');
+                        btn.disabled = false;
+                        btn.innerHTML = originalContent;
+                    }
+                })
+                .catch(() => {
+                    showStatus('login-status', 'login-status-text', 'Lỗi kết nối server');
+                    btn.disabled = false;
+                    btn.innerHTML = originalContent;
+                });
+
+            return false;
+        }
+
+        // ==== XỬ LÝ ĐĂNG KÝ (API THẬT) ====
+        function handleRegister(event) {
+            event.preventDefault();
+
+            const username = document.getElementById('reg-username').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const password = document.getElementById('reg-password').value;
+            const passwordConfirm = document.getElementById('reg-password-confirm').value;
+            const btn = document.getElementById('register-submit-btn');
+            const mismatchHint = document.getElementById('reg-mismatch-hint');
+
+            hideStatus('register-status');
+            mismatchHint.classList.remove('show');
+
+            if (username.length < 6 || username.length > 12) {
+                showStatus('register-status', 'register-status-text', 'Tên đăng nhập phải từ 6-12 ký tự.');
+                return false;
+            }
+
+            if (password.length < 8) {
+                showStatus('register-status', 'register-status-text', 'Mật khẩu phải có tối thiểu 8 ký tự.');
+                return false;
+            }
+
+            if (password !== passwordConfirm) {
+                mismatchHint.classList.add('show');
+                showStatus('register-status', 'register-status-text', 'Mật khẩu xác nhận không khớp.');
+                return false;
+            }
+
+            const originalContent = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<div class="btn-bg"></div><i class="bx bx-loader-alt" style="font-size:20px;"></i><span>ĐANG TẠO TÀI KHOẢN...</span>';
+
+            const fd = new FormData();
+            fd.append('action', 'register');
+            fd.append('username', username);
+            fd.append('password', password);
+            fd.append('email', email);
+
+            fetch(API_BASE + 'auth.php', { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        showStatus('register-status', 'register-status-text', 'Đăng ký thành công! Vui lòng đăng nhập.', true);
+                        btn.disabled = false;
+                        btn.innerHTML = originalContent;
+                        setTimeout(() => {
+                            switchTab('login');
+                            document.getElementById('login-username').value = username;
+                        }, 900);
+                    } else {
+                        showStatus('register-status', 'register-status-text', data.message || 'Đăng ký thất bại');
+                        btn.disabled = false;
+                        btn.innerHTML = originalContent;
+                    }
+                })
+                .catch(() => {
+                    showStatus('register-status', 'register-status-text', 'Lỗi kết nối server');
+                    btn.disabled = false;
+                    btn.innerHTML = originalContent;
+                });
+
+            return false;
+        }
+
+        // ==== CHECK SESSION ON LOAD ====
+        fetch(API_BASE + 'auth.php?action=check')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = 'home.html';
+                }
+            })
+            .catch(() => {});
+    </script>
+
+</body>
+</html>

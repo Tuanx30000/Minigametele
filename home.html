@@ -1,0 +1,1149 @@
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        />
+        <title>Tuanx3000 - Hệ Thống Tool</title>
+        <link
+            href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css"
+            rel="stylesheet"
+        />
+        <style>
+            @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;600&display=swap");
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                -webkit-tap-highlight-color: transparent;
+            }
+
+            body {
+                background-color: #050b14;
+                color: #ffffff;
+                font-family: "Inter", sans-serif;
+                display: flex;
+                justify-content: center;
+            }
+
+            .app-container {
+                width: 100%;
+                max-width: 480px;
+                min-height: 100vh;
+                background: linear-gradient(180deg, #091325 0%, #03060c 100%);
+                position: relative;
+                overflow-x: hidden;
+                padding-bottom: 80px;
+                background-image:
+                    radial-gradient(
+                        circle at 50% 0%,
+                        rgba(20, 45, 90, 0.4) 0%,
+                        transparent 50%
+                    ),
+                    repeating-linear-gradient(
+                        0deg,
+                        transparent,
+                        transparent 49px,
+                        rgba(255, 255, 255, 0.02) 50px
+                    );
+            }
+
+            header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 15px 20px;
+                background: rgba(9, 19, 37, 0.8);
+                backdrop-filter: blur(10px);
+                border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+            }
+
+            .user-profile {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                background: rgba(255, 255, 255, 0.05);
+                padding: 5px 15px 5px 5px;
+                border-radius: 30px;
+                border: 1px solid rgba(0, 150, 255, 0.3);
+            }
+
+            .avatar {
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                border: 2px solid #00f0ff;
+                object-fit: cover;
+            }
+
+            .user-info {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .user-name {
+                font-size: 14px;
+                font-weight: 600;
+            }
+
+            .balance {
+                font-size: 12px;
+                color: #f59e0b;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+
+            .header-actions {
+                display: flex;
+                gap: 15px;
+            }
+
+            .action-icon {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                font-size: 10px;
+                color: #94a3b8;
+                gap: 4px;
+                position: relative;
+            }
+
+            .action-icon i {
+                font-size: 20px;
+                color: #e2e8f0;
+            }
+
+            .notif-dot {
+                position: absolute;
+                top: -2px;
+                right: 10px;
+                width: 8px;
+                height: 8px;
+                background: #ef4444;
+                border-radius: 50%;
+                border: 1px solid #050b14;
+            }
+
+            .marquee-container {
+                background: rgba(0, 255, 255, 0.05);
+                border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+                border-top: 1px solid rgba(0, 255, 255, 0.1);
+                padding: 8px 20px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                overflow: hidden;
+            }
+
+            .marquee-container i {
+                color: #00f0ff;
+                flex-shrink: 0;
+            }
+
+            .marquee-text {
+                font-size: 12px;
+                white-space: nowrap;
+                color: #00f0ff;
+                animation: scroll 15s linear infinite;
+            }
+
+            @keyframes scroll {
+                0% {
+                    transform: translateX(100%);
+                }
+                100% {
+                    transform: translateX(-100%);
+                }
+            }
+
+            .section-header {
+                padding: 20px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .section-title {
+                font-family: "Rajdhani", sans-serif;
+                font-size: 22px;
+                font-weight: 700;
+                letter-spacing: 1px;
+                text-transform: uppercase;
+            }
+
+            .section-line {
+                flex-grow: 1;
+                height: 2px;
+                background: linear-gradient(
+                    90deg,
+                    #f59e0b 0%,
+                    transparent 100%
+                );
+            }
+
+            .grid-container {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+                padding: 0 20px;
+            }
+
+            .card {
+                background: linear-gradient(
+                    145deg,
+                    rgba(20, 35, 60, 0.6) 0%,
+                    rgba(10, 20, 40, 0.8) 100%
+                );
+                border: 1px solid rgba(0, 150, 255, 0.2);
+                border-radius: 16px;
+                padding: 25px 15px 15px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                position: relative;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+                transition: all 0.3s ease;
+                cursor: pointer;
+            }
+
+            .card.orange-glow {
+                box-shadow: inset 0 0 20px rgba(245, 158, 11, 0.1);
+                border-color: rgba(245, 158, 11, 0.3);
+            }
+            .card.cyan-glow {
+                box-shadow: inset 0 0 20px rgba(0, 240, 255, 0.1);
+                border-color: rgba(0, 240, 255, 0.3);
+            }
+
+            .card:hover {
+                transform: translateY(-5px);
+                border-color: #00f0ff;
+                box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+            }
+
+            .card:active {
+                transform: scale(0.97);
+            }
+
+            .game-icon {
+                width: 75px;
+                height: 75px;
+                border-radius: 16px;
+                margin-bottom: 12px;
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+                transition: transform 0.3s ease;
+                object-fit: contain;
+                background: rgba(0, 0, 0, 0.2);
+                pointer-events: none;
+            }
+
+            .card:hover .game-icon {
+                transform: scale(1.05);
+            }
+
+            .game-title {
+                font-family: "Rajdhani", sans-serif;
+                font-size: 16px;
+                font-weight: 600;
+                letter-spacing: 1.5px;
+                text-transform: uppercase;
+                pointer-events: none;
+            }
+
+            .badge {
+                position: absolute;
+                font-size: 10px;
+                font-weight: 700;
+                padding: 3px 8px;
+                border-radius: 10px;
+                z-index: 2;
+                pointer-events: none;
+            }
+
+            .badge-hot {
+                top: 10px;
+                left: 10px;
+                background: linear-gradient(90deg, #ff416c 0%, #ff4b2b 100%);
+                color: white;
+                box-shadow: 0 0 8px rgba(255, 65, 108, 0.6);
+            }
+
+            .badge-vip {
+                top: 10px;
+                right: 10px;
+                background: #1e293b;
+                color: #94a3b8;
+                border: 1px solid #334155;
+            }
+
+            .bottom-nav {
+                position: fixed;
+                bottom: 0;
+                width: 100%;
+                max-width: 480px;
+                background: rgba(5, 11, 20, 0.95);
+                backdrop-filter: blur(15px);
+                border-top: 1px solid rgba(0, 255, 255, 0.1);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px 15px 20px;
+                z-index: 100;
+            }
+
+            .nav-btn {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                width: 70px;
+                height: 50px;
+                color: white;
+                font-size: 10px;
+                font-weight: 600;
+                position: relative;
+                z-index: 1;
+                text-transform: uppercase;
+                cursor: pointer;
+            }
+
+            .nav-btn:active {
+                transform: scale(0.95);
+            }
+
+            .nav-btn i {
+                font-size: 20px;
+                margin-bottom: 4px;
+            }
+
+            .nav-bg {
+                position: absolute;
+                inset: 0;
+                z-index: -1;
+                border-radius: 6px;
+                transform: skewX(-15deg);
+            }
+
+            .nav-yellow .nav-bg {
+                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            }
+            .nav-orange .nav-bg {
+                background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+                width: 120%;
+                left: -10%;
+            }
+            .nav-green .nav-bg {
+                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                width: 120%;
+                left: -10%;
+            }
+            .nav-blue .nav-bg {
+                background: linear-gradient(135deg, #1e3a8a 0%, #172554 100%);
+                border: 1px solid #3b82f6;
+            }
+
+            .nav-center {
+                width: 40px;
+                height: 40px;
+                background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                transform: rotate(45deg);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 8px;
+                box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+                margin: 0 5px;
+                flex-shrink: 0;
+            }
+
+            .nav-center i {
+                transform: rotate(-45deg);
+                color: white;
+                font-size: 20px;
+            }
+
+            /* ===== POPUP KEY NÂNG CẤP ===== */
+            .modal-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.85);
+                backdrop-filter: blur(8px);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+                opacity: 0;
+                visibility: hidden;
+                transition: all 0.3s ease;
+                padding: 20px;
+            }
+
+            .modal-overlay.active {
+                opacity: 1;
+                visibility: visible;
+            }
+
+            .modal-box {
+                width: 100%;
+                max-width: 360px;
+                background: linear-gradient(145deg, #0f1f3d 0%, #060d1a 100%);
+                border: 1px solid rgba(0, 240, 255, 0.3);
+                border-radius: 20px;
+                padding: 30px 24px;
+                text-align: center;
+                box-shadow:
+                    0 0 40px rgba(0, 240, 255, 0.15),
+                    inset 0 0 30px rgba(0, 240, 255, 0.03);
+                transform: scale(0.9);
+                transition: transform 0.3s ease;
+            }
+
+            .modal-overlay.active .modal-box {
+                transform: scale(1);
+            }
+
+            .modal-icon {
+                width: 60px;
+                height: 60px;
+                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 16px;
+                box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+            }
+
+            .modal-icon i {
+                font-size: 28px;
+                color: white;
+            }
+
+            .modal-title {
+                font-family: "Rajdhani", sans-serif;
+                font-size: 20px;
+                font-weight: 700;
+                margin-bottom: 6px;
+                letter-spacing: 1px;
+            }
+
+            .modal-subtitle {
+                font-size: 13px;
+                color: #94a3b8;
+                margin-bottom: 20px;
+                line-height: 1.5;
+            }
+
+            .key-input {
+                width: 100%;
+                padding: 14px 18px;
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid rgba(0, 150, 255, 0.3);
+                border-radius: 12px;
+                color: white;
+                font-size: 15px;
+                font-family: "Inter", sans-serif;
+                text-align: center;
+                letter-spacing: 2px;
+                text-transform: uppercase;
+                outline: none;
+                transition: all 0.3s ease;
+                margin-bottom: 16px;
+            }
+
+            .key-input::placeholder {
+                color: #475569;
+                letter-spacing: 1px;
+                text-transform: none;
+            }
+
+            .key-input:focus {
+                border-color: #00f0ff;
+                box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
+                background: rgba(255, 255, 255, 0.08);
+            }
+
+            .modal-btn-group {
+                display: flex;
+                gap: 10px;
+            }
+
+            .modal-btn {
+                flex: 1;
+                padding: 12px;
+                border: none;
+                border-radius: 10px;
+                font-size: 14px;
+                font-weight: 600;
+                font-family: "Inter", sans-serif;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            }
+
+            .modal-btn:active {
+                transform: scale(0.97);
+            }
+
+            .btn-cancel {
+                background: rgba(255, 255, 255, 0.08);
+                color: #94a3b8;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            .btn-cancel:hover {
+                background: rgba(255, 255, 255, 0.12);
+            }
+
+            .btn-confirm {
+                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                color: white;
+                box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+            }
+
+            .btn-confirm:hover {
+                box-shadow: 0 4px 20px rgba(245, 158, 11, 0.5);
+            }
+
+            .game-name-highlight {
+                color: #f59e0b;
+                font-weight: 700;
+            }
+
+            /* ===== BUY KEY MODAL ===== */
+            .buy-modal-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.85);
+                backdrop-filter: blur(8px);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+                opacity: 0;
+                visibility: hidden;
+                transition: all 0.3s ease;
+                padding: 20px;
+            }
+
+            .buy-modal-overlay.active {
+                opacity: 1;
+                visibility: visible;
+            }
+
+            .buy-modal-box {
+                width: 100%;
+                max-width: 380px;
+                background: linear-gradient(145deg, #0f1f3d 0%, #060d1a 100%);
+                border: 1px solid rgba(0, 240, 255, 0.3);
+                border-radius: 20px;
+                padding: 28px 22px;
+                box-shadow:
+                    0 0 40px rgba(0, 240, 255, 0.15),
+                    inset 0 0 30px rgba(0, 240, 255, 0.03);
+                transform: scale(0.9);
+                transition: transform 0.3s ease;
+            }
+
+            .buy-modal-overlay.active .buy-modal-box {
+                transform: scale(1);
+            }
+
+            .package-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+                margin: 16px 0;
+            }
+
+            .package-chip {
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid rgba(0, 150, 255, 0.3);
+                border-radius: 12px;
+                padding: 14px 10px;
+                text-align: center;
+                cursor: pointer;
+                transition: all 0.25s ease;
+            }
+
+            .package-chip:hover {
+                border-color: rgba(0, 240, 255, 0.5);
+                background: rgba(0, 240, 255, 0.06);
+            }
+
+            .package-chip.selected {
+                border-color: #00f0ff;
+                background: rgba(0, 240, 255, 0.12);
+                box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+            }
+
+            .package-name {
+                font-family: "Rajdhani", sans-serif;
+                font-size: 15px;
+                font-weight: 700;
+                color: #fff;
+            }
+
+            .package-price {
+                font-size: 13px;
+                color: #f59e0b;
+                font-weight: 600;
+                margin-top: 4px;
+            }
+
+            .balance-display {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                background: rgba(0, 240, 255, 0.06);
+                border: 1px solid rgba(0, 240, 255, 0.2);
+                border-radius: 10px;
+                padding: 10px 14px;
+                margin-bottom: 14px;
+            }
+
+            .balance-display span:first-child {
+                font-size: 12px;
+                color: #94a3b8;
+            }
+
+            .balance-display span:last-child {
+                font-family: "Rajdhani", sans-serif;
+                font-size: 18px;
+                font-weight: 700;
+                color: #00f0ff;
+            }
+
+            /* Toast */
+            .toast {
+                position: fixed;
+                bottom: 90px;
+                left: 50%;
+                transform: translateX(-50%) translateY(20px);
+                background: rgba(10, 20, 40, 0.95);
+                border: 1px solid rgba(0, 240, 255, 0.4);
+                color: #fff;
+                padding: 12px 20px;
+                border-radius: 10px;
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                opacity: 0;
+                pointer-events: none;
+                transition: all 0.3s ease;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+                z-index: 9999;
+                max-width: 90%;
+            }
+            .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+            .toast i { font-size: 18px; }
+            .toast.success i { color: #4ade80; }
+            .toast.error i { color: #ef4444; }
+
+            /* Responsive small adjustments */
+            @media (max-width: 420px) {
+                .grid-container {
+                    gap: 10px;
+                    padding: 0 12px;
+                }
+                .card {
+                    padding: 18px 10px 12px;
+                }
+                .game-icon {
+                    width: 60px;
+                    height: 60px;
+                }
+                .game-title {
+                    font-size: 13px;
+                }
+                .section-title {
+                    font-size: 18px;
+                }
+                .nav-btn {
+                    width: 60px;
+                    font-size: 9px;
+                }
+                .nav-btn i {
+                    font-size: 18px;
+                }
+                .nav-center {
+                    width: 34px;
+                    height: 34px;
+                }
+                .nav-center i {
+                    font-size: 17px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="app-container">
+            <!-- HEADER -->
+            <header>
+                <div class="user-profile">
+                    <img
+                        src="https://i.pravatar.cc/100"
+                        alt="Avatar"
+                        class="avatar"
+                    />
+                    <div class="user-info">
+                        <span class="user-name" id="header-username">Tuanx3000</span>
+                        <span class="balance">
+                            <i class="bx bx-coin-stack"></i> <span id="header-balance">0</span> xu
+                        </span>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <div class="action-icon">
+                        <i class="bx bx-calendar-star"></i>
+                        <span>SỰ KIỆN</span>
+                    </div>
+                    <div class="action-icon">
+                        <i class="bx bx-bell"></i>
+                        <span>THÔNG BÁO</span>
+                        <span class="notif-dot"></span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- MARQUEE -->
+            <div class="marquee-container">
+                <i class="bx bx-volume-full"></i>
+                <div class="marquee-text">
+                    Nâng cấp VIP để mở khóa toàn bộ thuật toán cao cấp & AI Phân
+                    Tích Dữ Liệu Thế Hệ Mới
+                </div>
+            </div>
+
+            <!-- SECTION HEADER -->
+            <div class="section-header">
+                <i class="bx bxs-gamepad" style="font-size: 24px"></i>
+                <span class="section-title">NỀN TẢNG GAME</span>
+                <div class="section-line"></div>
+            </div>
+
+            <!-- GRID GAME CARDS -->
+            <div class="grid-container">
+                <div class="card orange-glow" data-game="SUNWIN">
+                    <span class="badge badge-hot">HOT</span>
+                    <span class="badge badge-vip">VIP</span>
+                    <img
+                        src="https://phanmemgame.com/IMAGE/sunwin_icon.png"
+                        alt="Sunwin"
+                        class="game-icon"
+                        loading="lazy"
+                    />
+                    <span class="game-title">SUNWIN</span>
+                </div>
+                <div class="card cyan-glow" data-game="HIT CLUB">
+                    <span class="badge badge-vip">VIP</span>
+                    <img
+                        src="https://phanmemgame.com/IMAGE/hitclub_icon.png"
+                        alt="Hit Club"
+                        class="game-icon"
+                        loading="lazy"
+                    />
+                    <span class="game-title">HIT CLUB</span>
+                </div>
+                <div class="card orange-glow" data-game="68 GAME BÀI">
+                    <span class="badge badge-vip">VIP</span>
+                    <img
+                        src="https://phanmemgame.com/IMAGE/gamebai68_icon.png"
+                        alt="68 Game Bài"
+                        class="game-icon"
+                        loading="lazy"
+                    />
+                    <span class="game-title">68 GAME BÀI</span>
+                </div>
+                <div class="card orange-glow" data-game="B52 CLUB">
+                    <span class="badge badge-vip">VIP</span>
+                    <img
+                        src="https://phanmemgame.com/IMAGE/b52club_icon.png"
+                        alt="B52 Club"
+                        class="game-icon"
+                        loading="lazy"
+                    />
+                    <span class="game-title">B52 CLUB</span>
+                </div>
+                <div class="card cyan-glow" data-game="LUCK8">
+                    <span class="badge badge-vip">VIP</span>
+                    <img
+                        src="https://phanmemgame.com/IMAGE/Remove-bg.ai_1752870960990.png"
+                        alt="Luck8"
+                        class="game-icon"
+                        loading="lazy"
+                    />
+                    <span class="game-title">LUCK8</span>
+                </div>
+                <div class="card cyan-glow" data-game="789 CLUB">
+                    <span class="badge badge-vip">VIP</span>
+                    <img
+                        src="https://phanmemgame.com/IMAGE/Remove-bg.ai_1752871014319.png"
+                        alt="789 Club"
+                        class="game-icon"
+                        loading="lazy"
+                    />
+                    <span class="game-title">789 CLUB</span>
+                </div>
+                <div class="card cyan-glow" data-game="LẨU CUA 79">
+                    <span class="badge badge-vip">VIP</span>
+                    <img
+                        src="https://phanmemgame.com/IMAGE/laucua.png"
+                        alt="Lẩu Cua 79"
+                        class="game-icon"
+                        loading="lazy"
+                    />
+                    <span class="game-title">LẨU CUA 79</span>
+                </div>
+                <div class="card cyan-glow" data-game="SON789">
+                    <span class="badge badge-vip">VIP</span>
+                    <img
+                        src="https://phanmemgame.com/IMAGE/son789_icon.png"
+                        alt="Son789"
+                        class="game-icon"
+                        loading="lazy"
+                    />
+                    <span class="game-title">SON789</span>
+                </div>
+                <div class="card orange-glow" data-game="BET VIP">
+                    <span class="badge badge-vip">VIP</span>
+                    <img
+                        src="https://phanmemgame.com/IMAGE/betvip_icon.png"
+                        alt="Bet VIP"
+                        class="game-icon"
+                        loading="lazy"
+                        onerror="this.src='https://phanmemgame.com/IMAGE/betvip.png'"
+                    />
+                    <span class="game-title">BET VIP</span>
+                </div>
+                <div class="card cyan-glow" data-game="XOCDIA88">
+                    <span class="badge badge-vip">VIP</span>
+                    <img
+                        src="https://phanmemgame.com/IMAGE/xocdia88_icon.png"
+                        alt="Xóc Đĩa 88"
+                        class="game-icon"
+                        loading="lazy"
+                        onerror="this.src='https://phanmemgame.com/IMAGE/xocdia88.png'"
+                    />
+                    <span class="game-title">XOCDIA88</span>
+                </div>
+            </div>
+
+            <!-- BOTTOM NAV -->
+            <div class="bottom-nav">
+                <div class="nav-btn nav-yellow">
+                    <div class="nav-bg"></div>
+                    <i class="bx bx-trophy"></i>
+                    <span>XẾP LOẠI</span>
+                </div>
+
+                <div
+                    class="nav-btn nav-orange"
+                    id="btnNapTien"
+                    style="width: 90px"
+                >
+                    <div class="nav-bg"></div>
+                    <i class="bx bx-credit-card-front"></i>
+                    <span>NẠP TIỀN</span>
+                </div>
+
+                <div class="nav-center">
+                    <i class="bx bx-diamond"></i>
+                </div>
+
+                <div class="nav-btn nav-green" id="btnMuaKey" style="width: 90px">
+                    <div class="nav-bg"></div>
+                    <i class="bx bx-id-card"></i>
+                    <span>MUA KEY</span>
+                </div>
+
+                <div class="nav-btn nav-blue" id="btnLogout">
+                    <div class="nav-bg"></div>
+                    <i class="bx bx-log-out"></i>
+                    <span>THOÁT</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== MODAL NHẬP KEY ===== -->
+        <div class="modal-overlay" id="keyModal">
+            <div class="modal-box">
+                <div class="modal-icon">
+                    <i class="bx bx-key"></i>
+                </div>
+                <div class="modal-title">YÊU CẦU NÂNG CẤP</div>
+                <div class="modal-subtitle">
+                    Bạn cần nhập key VIP để truy cập<br />
+                    <span class="game-name-highlight" id="modalGameName">SUNWIN</span>
+                </div>
+                <input
+                    type="text"
+                    class="key-input"
+                    id="keyInput"
+                    placeholder="Nhập key nâng cấp..."
+                    maxlength="20"
+                    autocomplete="off"
+                />
+                <div class="modal-btn-group">
+                    <button class="modal-btn btn-cancel" id="btnCancel">HỦY</button>
+                    <button class="modal-btn btn-confirm" id="btnConfirm">XÁC NHẬN</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== BUY KEY MODAL ===== -->
+        <div class="buy-modal-overlay" id="buyModal">
+            <div class="buy-modal-box">
+                <div class="modal-icon">
+                    <i class="bx bx-key"></i>
+                </div>
+                <div class="modal-title">MUA KEY VIP</div>
+                <div class="modal-subtitle">Chọn gói key cho <span class="game-name-highlight" id="buyGameName">SUNWIN</span></div>
+
+                <div class="balance-display">
+                    <span>Số dư hiện tại</span>
+                    <span id="buyBalance">0đ</span>
+                </div>
+
+                <div class="package-grid" id="packageGrid">
+                    <div class="package-chip" data-package="1 ngày" data-price="50000">
+                        <div class="package-name">1 NGÀY</div>
+                        <div class="package-price">50.000đ</div>
+                    </div>
+                    <div class="package-chip" data-package="3 ngày" data-price="120000">
+                        <div class="package-name">3 NGÀY</div>
+                        <div class="package-price">120.000đ</div>
+                    </div>
+                    <div class="package-chip" data-package="7 ngày" data-price="250000">
+                        <div class="package-name">7 NGÀY</div>
+                        <div class="package-price">250.000đ</div>
+                    </div>
+                    <div class="package-chip" data-package="30 ngày" data-price="800000">
+                        <div class="package-name">30 NGÀY</div>
+                        <div class="package-price">800.000đ</div>
+                    </div>
+                    <div class="package-chip" data-package="Vĩnh viễn" data-price="2000000" style="grid-column: span 2;">
+                        <div class="package-name">VĨNH VIỄN</div>
+                        <div class="package-price">2.000.000đ</div>
+                    </div>
+                </div>
+
+                <div class="modal-btn-group">
+                    <button class="modal-btn btn-cancel" id="btnBuyCancel">HỦY</button>
+                    <button class="modal-btn btn-confirm" id="btnBuyConfirm">MUA NGAY</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="toast" id="toast">
+            <i class="bx bx-check-circle"></i>
+            <span id="toast-text"></span>
+        </div>
+
+        <script>
+            const API_BASE = 'api/';
+            let currentUser = null;
+            let currentGame = '';
+            let selectedPackage = null;
+
+            // ===== CHECK AUTH =====
+            fetch(API_BASE + 'auth.php?action=check')
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) {
+                        window.location.href = 'index.html';
+                        return;
+                    }
+                    currentUser = data;
+                    document.getElementById('header-username').textContent = data.username;
+                    document.getElementById('header-balance').textContent = Number(data.balance).toLocaleString('vi-VN');
+                    document.getElementById('buyBalance').textContent = Number(data.balance).toLocaleString('vi-VN') + 'đ';
+                })
+                .catch(() => {
+                    window.location.href = 'index.html';
+                });
+
+            // ===== TOAST =====
+            function showToast(msg, isError) {
+                const toast = document.getElementById('toast');
+                const text = document.getElementById('toast-text');
+                text.textContent = msg;
+                toast.className = 'toast ' + (isError ? 'error' : 'success') + ' show';
+                toast.querySelector('i').className = isError ? 'bx bx-error-circle' : 'bx bx-check-circle';
+                setTimeout(() => toast.classList.remove('show'), 2500);
+            }
+
+            // ===== NAV =====
+            document.getElementById("btnNapTien").addEventListener("click", function () {
+                window.location.href = "naptien.html";
+            });
+
+            document.getElementById("btnLogout").addEventListener("click", function () {
+                fetch(API_BASE + 'auth.php', {
+                    method: 'POST',
+                    body: new URLSearchParams({ action: 'logout' })
+                }).then(() => {
+                    window.location.href = 'index.html';
+                });
+            });
+
+            // ===== KEY MODAL (nhập key) =====
+            const keyModal = document.getElementById("keyModal");
+            const modalGameName = document.getElementById("modalGameName");
+            const keyInput = document.getElementById("keyInput");
+            const btnCancel = document.getElementById("btnCancel");
+            const btnConfirm = document.getElementById("btnConfirm");
+
+            document.querySelectorAll(".card").forEach((card) => {
+                card.addEventListener("click", function () {
+                    const gameName = this.getAttribute("data-game");
+                    currentGame = gameName;
+
+                    // Check if user has active key
+                    const fd = new FormData();
+                    fd.append('action', 'check');
+                    fd.append('game', gameName);
+                    fetch(API_BASE + 'key.php', { method: 'POST', body: fd })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.success && data.has_key) {
+                                showToast('Bạn đã có key cho ' + gameName + ' (hết hạn: ' + data.expires_at + ')');
+                                // TODO: Open tool
+                            } else {
+                                modalGameName.textContent = gameName;
+                                keyInput.value = "";
+                                keyModal.classList.add("active");
+                                setTimeout(() => keyInput.focus(), 300);
+                            }
+                        })
+                        .catch(() => {
+                            modalGameName.textContent = gameName;
+                            keyInput.value = "";
+                            keyModal.classList.add("active");
+                        });
+                });
+            });
+
+            function closeModal() {
+                keyModal.classList.remove("active");
+                keyInput.value = "";
+            }
+
+            btnCancel.addEventListener("click", closeModal);
+            keyModal.addEventListener("click", function (e) {
+                if (e.target === keyModal) closeModal();
+            });
+
+            btnConfirm.addEventListener("click", function () {
+                const key = keyInput.value.trim().toUpperCase();
+                if (!key) {
+                    keyInput.style.borderColor = "#ef4444";
+                    keyInput.style.boxShadow = "0 0 12px rgba(239, 68, 68, 0.3)";
+                    keyInput.placeholder = "Vui lòng nhập key!";
+                    setTimeout(() => {
+                        keyInput.style.borderColor = "";
+                        keyInput.style.boxShadow = "";
+                        keyInput.placeholder = "Nhập key nâng cấp...";
+                    }, 1500);
+                    return;
+                }
+
+                const fd = new FormData();
+                fd.append('action', 'validate');
+                fd.append('game', currentGame);
+                fd.append('key', key);
+
+                fetch(API_BASE + 'key.php', { method: 'POST', body: fd })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast('Key hợp lệ! Mở tool ' + currentGame + '...');
+                            closeModal();
+                            // TODO: Open tool interface
+                        } else {
+                            showToast(data.message || 'Key không hợp lệ', true);
+                        }
+                    })
+                    .catch(() => showToast('Lỗi kết nối', true));
+            });
+
+            keyInput.addEventListener("keypress", function (e) {
+                if (e.key === "Enter") btnConfirm.click();
+            });
+            keyInput.addEventListener("input", function () {
+                this.style.borderColor = "";
+                this.style.boxShadow = "";
+            });
+
+            // ===== BUY KEY MODAL =====
+            const buyModal = document.getElementById("buyModal");
+            const buyGameName = document.getElementById("buyGameName");
+            const btnBuyCancel = document.getElementById("btnBuyCancel");
+            const btnBuyConfirm = document.getElementById("btnBuyConfirm");
+            const packageChips = document.querySelectorAll(".package-chip");
+
+            document.getElementById("btnMuaKey").addEventListener("click", function () {
+                buyGameName.textContent = "Tất cả game";
+                currentGame = "";
+                buyModal.classList.add("active");
+            });
+
+            packageChips.forEach(chip => {
+                chip.addEventListener("click", function () {
+                    packageChips.forEach(c => c.classList.remove("selected"));
+                    this.classList.add("selected");
+                    selectedPackage = {
+                        package: this.dataset.package,
+                        price: parseInt(this.dataset.price)
+                    };
+                });
+            });
+
+            btnBuyCancel.addEventListener("click", function () {
+                buyModal.classList.remove("active");
+                packageChips.forEach(c => c.classList.remove("selected"));
+                selectedPackage = null;
+            });
+
+            buyModal.addEventListener("click", function (e) {
+                if (e.target === buyModal) btnBuyCancel.click();
+            });
+
+            btnBuyConfirm.addEventListener("click", function () {
+                if (!selectedPackage) {
+                    showToast('Vui lòng chọn gói key', true);
+                    return;
+                }
+                if (!currentGame) {
+                    showToast('Vui lòng chọn game trước khi mua key', true);
+                    return;
+                }
+
+                const fd = new FormData();
+                fd.append('action', 'buy');
+                fd.append('package', selectedPackage.package);
+                fd.append('game', currentGame);
+
+                fetch(API_BASE + 'key.php', { method: 'POST', body: fd })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            showToast('Mua key thành công! Key: ' + data.key);
+                            document.getElementById('header-balance').textContent = Number(data.balance).toLocaleString('vi-VN');
+                            document.getElementById('buyBalance').textContent = Number(data.balance).toLocaleString('vi-VN') + 'đ';
+                            buyModal.classList.remove("active");
+                            packageChips.forEach(c => c.classList.remove("selected"));
+                            selectedPackage = null;
+                        } else {
+                            showToast(data.message || 'Mua key thất bại', true);
+                        }
+                    })
+                    .catch(() => showToast('Lỗi kết nối', true));
+            });
+        </script>
+    </body>
+</html>

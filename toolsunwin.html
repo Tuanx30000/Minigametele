@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, user-scalable=no"
+        />
+        <title>ROBOT DỰ ĐOÁN SUNWIN PRO</title>
+        <style>
+            body,
+            html {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                background: #000;
+                font-family: "Segoe UI", Roboto, sans-serif;
+            }
+            #game-frame {
+                width: 100%;
+                height: 100%;
+                border: none;
+                position: absolute;
+                top: 0;
+                left: 0;
+                z-index: 1;
+            }
+
+            /* Khung chứa Robot và giao diện trôi nổi */
+            #tool-container {
+                position: fixed;
+                top: 20%;
+                left: 15%;
+                width: 300px;
+                height: 140px;
+                z-index: 999999;
+                cursor: move;
+                touch-action: none;
+                user-select: none;
+                display: flex;
+                align-items: center;
+                justify-content: flex-start;
+            }
+
+            /* Nút tắt tool */
+            .close-x {
+                position: absolute;
+                top: 2px;
+                right: 20px;
+                color: rgba(255, 255, 255, 0.8);
+                font-size: 18px;
+                font-weight: bold;
+                cursor: pointer;
+                z-index: 1002;
+                text-shadow: 0 0 6px #ff0000;
+                padding: 6px 8px;
+                background: rgba(0, 0, 0, 0.3);
+                border-radius: 50%;
+                line-height: 1;
+            }
+            .close-x:hover {
+                color: #ff4444;
+                background: rgba(0, 0, 0, 0.6);
+            }
+
+            /* Ảnh Robot GIF */
+            .robot-bg {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+                pointer-events: none;
+                z-index: 1000;
+            }
+
+            /* Vùng hiển thị chữ dự đoán – bo khít vào màn hình robot */
+            .hud-content {
+                position: absolute;
+                top: 30%;
+                left: 48%;
+                width: 30%;
+                height: 50%;
+                z-index: 1001;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                text-align: center;
+                box-sizing: border-box;
+                overflow: hidden;
+            }
+
+            #sync-status {
+                font-size: clamp(
+                    9px,
+                    2.5vw,
+                    12px
+                ); /* Tự co giãn theo chiều rộng container */
+                font-weight: 900;
+                color: #00ffff;
+                letter-spacing: 0.3px;
+                text-shadow:
+                    0 0 5px #00a2ff,
+                    0 0 10px #00a2ff;
+                line-height: 1.3;
+                width: 100%;
+                white-space: nowrap;
+            }
+
+            /* Hiệu ứng nhấp nháy khi đang phân tích */
+            .analyzing {
+                animation: blinker 0.6s linear infinite;
+                color: #ffcc00 !important;
+                text-shadow: 0 0 8px #ff9900 !important;
+            }
+            @keyframes blinker {
+                50% {
+                    opacity: 0.3;
+                }
+            }
+
+            /* Đảm bảo span dự đoán không phá layout */
+            #sync-status span {
+                white-space: nowrap;
+            }
+        </style>
+    </head>
+    <body>
+        <iframe
+            id="game-frame"
+            src="https://web.sunwin.free/?affId=Sunwin/"
+        ></iframe>
+
+        <div id="tool-container">
+            <div class="close-x" id="btn-close">✕</div>
+
+            <img
+                src="https://phanmemgame.com/IMAGE/robot.gif"
+                class="robot-bg"
+                alt="Robot HUD"
+            />
+
+            <div class="hud-content">
+                <div id="sync-status">ĐANG KẾT NỐI...</div>
+            </div>
+        </div>
+
+        <script>
+            (function () {
+                const tool = document.getElementById("tool-container");
+                const msg = document.getElementById("sync-status");
+
+                // ====== KÉO THẢ CHÍNH XÁC ======
+                let dragging = false;
+                let startX, startY, initialLeft, initialTop;
+
+                const onStart = (e) => {
+                    if (e.target.id === "btn-close") return;
+                    dragging = true;
+                    const point = e.touches ? e.touches[0] : e;
+                    startX = point.clientX;
+                    startY = point.clientY;
+                    const rect = tool.getBoundingClientRect();
+                    initialLeft = rect.left;
+                    initialTop = rect.top;
+                    e.preventDefault();
+                };
+
+                const onMove = (e) => {
+                    if (!dragging) return;
+                    const point = e.touches ? e.touches[0] : e;
+                    const dx = point.clientX - startX;
+                    const dy = point.clientY - startY;
+                    tool.style.left = initialLeft + dx + "px";
+                    tool.style.top = initialTop + dy + "px";
+                };
+
+                const onEnd = () => {
+                    dragging = false;
+                };
+
+                tool.addEventListener("mousedown", onStart);
+                tool.addEventListener("touchstart", onStart, {
+                    passive: false,
+                });
+                window.addEventListener("mousemove", onMove);
+                window.addEventListener("touchmove", onMove, {
+                    passive: false,
+                });
+                window.addEventListener("mouseup", onEnd);
+                window.addEventListener("touchend", onEnd);
+
+                document
+                    .getElementById("btn-close")
+                    .addEventListener("click", () => {
+                        tool.style.display = "none";
+                    });
+
+                // ====== CẤU HÌNH API ======
+                const API_BASE_URL = "https://phanmemakiyori.fun/apisun.php";
+                let lastDisplayedPhien = 0;
+                let analyzingTimeout = null;
+                let localHistory = [];
+
+                function analyzePrediction(currentPhien) {
+                    if (localHistory.length === 0) {
+                        return Math.random() > 0.5 ? "TÀI" : "XỈU";
+                    }
+                    const recent = localHistory.slice(-3);
+                    let tai = 0,
+                        xiu = 0;
+                    recent.forEach((h) => {
+                        if (h.result === "Tài") tai++;
+                        else if (h.result === "Xỉu") xiu++;
+                    });
+                    if (tai >= 2) return "TÀI";
+                    if (xiu >= 2) return "XỈU";
+                    let pointSum = 0;
+                    recent.forEach((h) => {
+                        pointSum += h.total;
+                    });
+                    const hash = pointSum + currentPhien;
+                    return hash % 2 === 0 ? "TÀI" : "XỈU";
+                }
+
+                function updateFromAPI(data) {
+                    let phien = null,
+                        tong = null;
+                    if (data && typeof data === "object") {
+                        if (
+                            data.Phien !== undefined &&
+                            data.Tong !== undefined
+                        ) {
+                            phien = parseInt(data.Phien);
+                            tong = parseInt(data.Tong);
+                        } else if (
+                            data.current &&
+                            data.current.Phien !== undefined &&
+                            data.current.Tong !== undefined
+                        ) {
+                            phien = parseInt(data.current.Phien);
+                            tong = parseInt(data.current.Tong);
+                        } else if (
+                            data.data &&
+                            data.data.Phien !== undefined &&
+                            data.data.Tong !== undefined
+                        ) {
+                            phien = parseInt(data.data.Phien);
+                            tong = parseInt(data.data.Tong);
+                        } else if (
+                            Array.isArray(data) &&
+                            data.length > 0 &&
+                            data[0].Phien !== undefined
+                        ) {
+                            phien = parseInt(data[0].Phien);
+                            tong = parseInt(data[0].Tong);
+                        }
+                    }
+
+                    if (
+                        phien === null ||
+                        isNaN(phien) ||
+                        tong === null ||
+                        isNaN(tong)
+                    ) {
+                        console.warn("Dữ liệu API không đúng định dạng:", data);
+                        return;
+                    }
+
+                    const ketQuaThucTe = tong >= 11 ? "Tài" : "Xỉu";
+
+                    if (phien !== lastDisplayedPhien) {
+                        lastDisplayedPhien = phien;
+                        localHistory.push({
+                            session: phien,
+                            result: ketQuaThucTe,
+                            total: tong,
+                        });
+                        if (localHistory.length > 20) localHistory.shift();
+
+                        if (analyzingTimeout) clearTimeout(analyzingTimeout);
+                        msg.style.color = "#00ffff";
+                        msg.innerHTML = `AI ĐANG <br>QUÉT CẦU`;
+                        msg.classList.add("analyzing");
+
+                        analyzingTimeout = setTimeout(() => {
+                            msg.classList.remove("analyzing");
+                            const prediction = analyzePrediction(phien);
+                            const nextPhien = phien + 1;
+                            msg.innerHTML = `PHIÊN #${nextPhien}<br><span style="font-size: 15px; font-weight: 900; display: inline-block; margin-top: 3px;">${prediction}</span>`;
+                            msg.style.color =
+                                prediction === "TÀI" ? "#00FF00" : "#FF2222";
+                        }, 2000);
+                    }
+                }
+
+                async function fetchAPI(retryCount = 0) {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(
+                        () => controller.abort(),
+                        8000,
+                    );
+                    try {
+                        const fetchUrl = `${API_BASE_URL}?t=${Date.now()}`;
+                        const response = await fetch(fetchUrl, {
+                            method: "GET",
+                            signal: controller.signal,
+                            cache: "no-store",
+                        });
+                        if (!response.ok)
+                            throw new Error(`HTTP ${response.status}`);
+                        const data = await response.json();
+                        updateFromAPI(data);
+                    } catch (err) {
+                        console.error("Lỗi API:", err.message);
+                        if (lastDisplayedPhien === 0) {
+                            msg.innerHTML = `MẤT KẾT NỐI<br>SERVER`;
+                            msg.style.color = "#ff4444";
+                            msg.classList.remove("analyzing");
+                        }
+                        if (retryCount < 3) {
+                            setTimeout(() => fetchAPI(retryCount + 1), 3000);
+                        }
+                    } finally {
+                        clearTimeout(timeoutId);
+                    }
+                }
+
+                fetchAPI();
+                setInterval(() => fetchAPI(), 4000);
+            })();
+        </script>
+    </body>
+</html>
